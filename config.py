@@ -19,8 +19,9 @@ class Config:
     PORT: int = int(os.environ.get("PORT", "5000"))
 
     # ``sqlite:///<absolute path>`` is the SQLAlchemy convention for a
-    # file-backed SQLite database.
-    DATABASE_URL: str = os.environ.get(
+    # file-backed SQLite database. Named ``SQLALCHEMY_DATABASE_URI`` because
+    # that is the exact key Flask-SQLAlchemy reads from ``app.config``.
+    SQLALCHEMY_DATABASE_URI: str = os.environ.get(
         "DATABASE_URL", f"sqlite:///{INSTANCE_DIR / 'bingo.db'}"
     )
 

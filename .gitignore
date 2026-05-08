@@ -17,6 +17,9 @@ instance/
 .vscode/
 .idea/
 
+# Claude Code per-machine settings (permissions, local prefs)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
