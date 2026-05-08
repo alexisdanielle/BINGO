@@ -1,0 +1,67 @@
+{% extends "base.html" %} {% block title %}Host — Virtual Bingo{% endblock %} {%
+block content %}
+
+<section id="create-section">
+  <h2>Create a game</h2>
+  <form id="create-form">
+    <label
+      >Host name
+      <input name="host_name" required autocomplete="off" />
+    </label>
+    <label
+      >Pattern
+      <select name="pattern">
+        <option value="horizontal">Horizontal line</option>
+        <option value="vertical">Vertical line</option>
+        <option value="diagonal">Diagonal</option>
+        <option value="full_house">Full house</option>
+      </select>
+    </label>
+    <label
+      >Call interval (seconds)
+      <input
+        type="number"
+        name="call_interval_seconds"
+        value="5"
+        min="1"
+        max="60"
+      />
+    </label>
+    <button type="submit">Create game</button>
+  </form>
+</section>
+
+<section id="lobby-section" hidden>
+  <h2>Lobby — share this link</h2>
+  <p><a id="join-link" href="" target="_blank" rel="noopener"></a></p>
+  <h3>Players joined (<span id="player-count">0</span>)</h3>
+  <ul id="player-list"></ul>
+  <button id="start-button" type="button">Start game</button>
+</section>
+
+<section id="game-section" hidden>
+  <h2>Game in progress</h2>
+  <div class="current-word">
+    <span class="label">Now calling:</span>
+    <span id="current-word">—</span>
+  </div>
+  <h3>Leaderboard</h3>
+  <ol id="leaderboard">
+    <li class="placeholder">1st: —</li>
+    <li class="placeholder">2nd: —</li>
+    <li class="placeholder">3rd: —</li>
+  </ol>
+  <h3>Called words (<span id="call-count">0</span>)</h3>
+  <ul id="call-history"></ul>
+</section>
+
+<section id="end-section" hidden>
+  <h2>Game ended</h2>
+  <p id="end-reason"></p>
+  <h3>Final leaderboard</h3>
+  <ol id="final-leaderboard"></ol>
+</section>
+
+{% endblock %} {% block scripts %}
+<script src="{{ url_for('static', filename='js/host.js') }}"></script>
+{% endblock %}

@@ -6,7 +6,7 @@ Run locally:
 """
 from __future__ import annotations
 
-from flask import Flask
+from flask import Flask, render_template
 
 from config import Config
 from models import db, init_db
@@ -48,9 +48,14 @@ def create_app(test_config: dict | None = None) -> Flask:
     import sockets  # noqa: F401
 
     @app.get("/")
-    def index() -> str:
-        """Landing page — temporary smoke test until the host UI ships."""
-        return "Hello Bingo"
+    def host_page() -> str:
+        """Host UI: create a game, watch the lobby, run the round."""
+        return render_template("host.html")
+
+    @app.get("/play")
+    def player_page() -> str:
+        """Player UI: ``?game_id=<id>`` query string says which game to join."""
+        return render_template("player.html")
 
     return app
 

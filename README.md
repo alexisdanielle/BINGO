@@ -32,7 +32,10 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The server listens on http://localhost:5000. Visit `/` and you should see **Hello Bingo**.
+The server listens on http://localhost:5000.
+
+- Visit `/` to open the **host UI** — create a game, share the join link, start the round.
+- Visit `/play?game_id=<id>` to open the **player UI** — enter a name, get a card, click cells to mark, hit BINGO! when you have a winning pattern.
 
 ## Tests
 
