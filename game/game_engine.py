@@ -1,15 +1,60 @@
-"""Game-engine logic.
-
-For now: ``check_win`` only. Other state-machine code (calling words,
-recording wins, ending the game after the 3rd valid winner per D8)
-will land here as it's added.
-"""
+"""Game-engine logic: win detection plus the per-game word-calling loop."""
 from __future__ import annotations
 
+import logging
+import random
 from collections.abc import Iterable
+from datetime import datetime, timezone
 
-from game.card_generator import FREE_LABEL
-from game.patterns import PATTERN_TYPES
+from flask import Flask
+
+from game.card_generator import FREE_LABEL, WORD_POOL
+from game.patterns import GRID_SIZE, PATTERN_TYPES
+from models import Call, Game, db
+from sockets import socketio
+
+log = logging.getLogger(__name__)
+
+
+# Human-readable label for each individual sub-pattern within a pattern
+# type. Stored in ``wins.pattern_matched`` so the leaderboard / audit
+# trail records *which* line was completed (e.g. "row_2" = third row).
+_PATTERN_LABELS: dict[str, list[str]] = {
+    "horizontal": [f"row_{r}" for r in range(GRID_SIZE)],
+    "vertical": [f"col_{c}" for c in range(GRID_SIZE)],
+    "diagonal": ["diag_main", "diag_anti"],
+    "full_house": ["full_house"],
+}
+
+
+def which_pattern_matched(
+    card: list[list[str]],
+    called_words: Iterable[str],
+    pattern_type: str,
+) -> str | None:
+    """Return the label of the first matching sub-pattern, else None.
+
+    A cell is "marked" if its word is in ``called_words`` or it's the
+    FREE center (D2/D3 — auto-marked).
+
+    Raises:
+        ValueError: if ``pattern_type`` is unknown.
+    """
+    if pattern_type not in PATTERN_TYPES:
+        raise ValueError(
+            f"Unknown pattern_type {pattern_type!r}; expected one of "
+            f"{sorted(PATTERN_TYPES)}"
+        )
+    called = set(called_words)
+    for label, pattern in zip(
+        _PATTERN_LABELS[pattern_type], PATTERN_TYPES[pattern_type]
+    ):
+        if all(
+            card[r][c] == FREE_LABEL or card[r][c] in called
+            for (r, c) in pattern
+        ):
+            return label
+    return None
 
 
 def check_win(
@@ -17,31 +62,82 @@ def check_win(
     called_words: Iterable[str],
     pattern_type: str,
 ) -> bool:
-    """Return True if ``card`` has any completed pattern of the given type.
+    """True iff ``card`` has any completed pattern of the given type."""
+    return which_pattern_matched(card, called_words, pattern_type) is not None
 
-    A cell is "marked" if its word is in ``called_words`` OR it's the
-    FREE center, which is auto-marked per D2/D3.
 
-    ``pattern_type`` is one of the keys of ``PATTERN_TYPES``:
-    ``"horizontal"``, ``"vertical"``, ``"diagonal"``, ``"full_house"``.
+def _utcnow() -> datetime:
+    """Timezone-aware UTC timestamp (mirrors the helper in models)."""
+    return datetime.now(timezone.utc)
 
-    Raises:
-        ValueError: if ``pattern_type`` is not a recognized name.
+
+def run_call_loop(app: Flask, game_id: int) -> None:
+    """Background task: call one random uncalled word per interval.
+
+    Runs in a thread spawned by ``socketio.start_background_task`` from
+    the host's /start handler. Stops when the game's status leaves
+    ``"active"`` (e.g. the bingo handler set it to ``"finished"`` after
+    the 3rd winner) or when the word pool is exhausted.
+
+    Each iteration: read fresh game state, pick a random uncalled word,
+    persist a Call row, broadcast ``word_called``, then sleep.
     """
-    if pattern_type not in PATTERN_TYPES:
-        raise ValueError(
-            f"Unknown pattern_type {pattern_type!r}; expected one of "
-            f"{sorted(PATTERN_TYPES)}"
-        )
+    with app.app_context():
+        try:
+            game = db.session.get(Game, game_id)
+            if game is None:
+                log.warning("run_call_loop: game %s not found", game_id)
+                return
 
-    # Promote to a set for O(1) membership. Accepting any iterable lets
-    # callers pass either an ordered list of calls or an existing set.
-    called = set(called_words)
+            already_called = {c.word for c in game.calls}
+            remaining = [w for w in WORD_POOL if w not in already_called]
+            random.shuffle(remaining)
 
-    for pattern in PATTERN_TYPES[pattern_type]:
-        if all(
-            card[r][c] == FREE_LABEL or card[r][c] in called
-            for (r, c) in pattern
-        ):
-            return True
-    return False
+            while True:
+                # ``Session.commit`` expires loaded objects, so attribute
+                # access on ``game`` after the previous iteration's commit
+                # re-issues a SELECT — picking up status changes made by
+                # other requests (e.g. a 3rd-winner /bingo).
+                if game.status != "active":
+                    return
+
+                if not remaining:
+                    # Pool exhausted before 3 winners. Won't happen in
+                    # normal play (75 words >> 25 cells) but we end the
+                    # game cleanly so clients aren't stuck.
+                    game.status = "finished"
+                    game.finished_at = _utcnow()
+                    db.session.commit()
+                    socketio.emit(
+                        "game_ended",
+                        {"game_id": game.id, "reason": "pool_exhausted"},
+                        to=f"game:{game.id}",
+                    )
+                    return
+
+                word = remaining.pop()
+                next_index = (
+                    max((c.call_index for c in game.calls), default=0) + 1
+                )
+                call = Call(
+                    game_id=game.id, word=word, call_index=next_index
+                )
+                db.session.add(call)
+                db.session.commit()
+
+                socketio.emit(
+                    "word_called",
+                    {
+                        "game_id": game.id,
+                        "word": word,
+                        "call_index": next_index,
+                    },
+                    to=f"game:{game.id}",
+                )
+                # ``socketio.sleep`` is the right primitive across all
+                # async modes (under threading it's just time.sleep).
+                socketio.sleep(game.call_interval_seconds)
+        except Exception:
+            # Background tasks swallow exceptions silently otherwise —
+            # log so we can debug a misbehaving loop.
+            log.exception("run_call_loop crashed for game %s", game_id)
