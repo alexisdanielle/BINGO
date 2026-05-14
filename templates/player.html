@@ -1,6 +1,18 @@
 {% extends "base.html" %} {% block title %}Player — Virtual Bingo{% endblock %}
 {% block content %}
 
+{# Fixed-position toggle so it stays accessible across section swaps.
+   aria-pressed reflects the muted state for screen readers. #}
+<button
+  id="mute-toggle"
+  type="button"
+  class="mute-toggle"
+  aria-pressed="false"
+  aria-label="Toggle audio"
+>
+  Audio: on
+</button>
+
 <section id="join-section">
   <h2>Join game <span id="header-game-id"></span></h2>
   <form id="join-form">

@@ -279,12 +279,14 @@ function hideError(id) {
 function speak(word, description) {
   if (!("speechSynthesis" in window)) return;
   // Cancel any in-flight utterance so words don't pile up if the host
-  // picked a short call interval.
+  // picked a short call interval (the new word truncates the old one).
   speechSynthesis.cancel();
-  // Speak the word first; descriptions tend to be ~15 words and would
-  // dominate a 5s cadence, so we only speak the word here. The text is
-  // visible on screen for anyone who wants to read along.
-  const utt = new SpeechSynthesisUtterance(word);
-  utt.rate = 0.9;
+  // Speak "<word>. <description>" so the audience hears both the term
+  // and a short factual blurb. The period gives the engine a natural
+  // pause between the two. If a description is missing (legacy games
+  // without a topic), fall back to just the word.
+  const text = description ? `${word}. ${description}` : word;
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 0.9; // slightly slower than default for clarity
   speechSynthesis.speak(utt);
 }

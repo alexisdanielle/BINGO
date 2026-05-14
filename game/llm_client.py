@@ -31,7 +31,11 @@ from typing import Callable, Literal
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()
+    # ``override=True`` makes .env authoritative even when a shell-exported
+    # var of the same name exists. Without this, a stale GEMINI_API_KEY
+    # left over in the parent shell silently masks the .env value and
+    # gives a confusing API_KEY_INVALID at runtime.
+    load_dotenv(override=True)
 except ImportError:
     pass
 

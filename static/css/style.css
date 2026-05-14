@@ -186,3 +186,23 @@ a { color: var(--accent); }
   .current-word { font-size: 1.2rem; }
   #bingo-button { font-size: 1.25rem; }
 }
+
+/* Player-only mute toggle. position:fixed keeps it pinned to the
+   viewport top-right regardless of which game section is showing. */
+.mute-toggle {
+  position: fixed;
+  top: 0.65rem;
+  right: 0.75rem;
+  z-index: 100;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+}
+.mute-toggle:hover { background: rgba(255, 255, 255, 0.3); }
+.mute-toggle.muted {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.4);
+}
