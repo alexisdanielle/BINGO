@@ -7,6 +7,14 @@ on 2026-05-07:
     - ``cards.created_at`` and unique ``(game_id, player_name)``
     - ``calls.call_index``
     - ``wins.pattern_matched``
+
+Iteration 2 (topic generator) additions:
+    - ``Topic`` table caches LLM-generated word lists per topic name
+    - ``games.game_words`` stores the finalized per-game list of
+      {word, description} pairs the host accepted (may differ from the
+      cached Topic if the host edited rows for this particular game)
+    - ``calls.description`` records the description shown alongside the
+      word for that call, so the audit trail is self-contained
 """
 from __future__ import annotations
 
@@ -50,6 +58,10 @@ class Game(db.Model):
     host_token: Mapped[str] = mapped_column(nullable=False, unique=True)
     # Per-game cadence (D4). 5s default; host can override at creation.
     call_interval_seconds: Mapped[int] = mapped_column(nullable=False, default=5)
+    # Finalized list of {"word": str, "description": str} dicts the host
+    # accepted at game creation. Nullable for back-compat with games
+    # created before iteration 2; new games always populate it.
+    game_words: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -105,6 +117,9 @@ class Call(db.Model):
         ForeignKey("games.id"), nullable=False, index=True
     )
     word: Mapped[str] = mapped_column(nullable=False)
+    # Description shown alongside the word at call time (iteration 2).
+    # Nullable so games that pre-date the topic feature still load.
+    description: Mapped[str | None] = mapped_column(nullable=True)
     # 1-indexed position within the game. Useful for replay/UI ordering.
     call_index: Mapped[int] = mapped_column(nullable=False)
     called_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
@@ -134,6 +149,30 @@ class Win(db.Model):
 
     game: Mapped[Game] = relationship(back_populates="wins")
     card: Mapped[Card] = relationship(back_populates="wins")
+
+
+class Topic(db.Model):
+    """Cached LLM-generated word list for a topic name.
+
+    Subsequent ``generate_word_list("CGI")`` calls hit this row instead
+    of re-prompting the LLM, which keeps the demo fast and reduces API
+    spend. ``topic_name`` is stored normalized (lowercase + stripped)
+    so the cache is case-insensitive — see ``topic_generator._normalize``.
+    """
+
+    __tablename__ = "topics"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_name: Mapped[str] = mapped_column(nullable=False, unique=True)
+    # List of {"word": str, "description": str} dicts as returned by
+    # the LLM (and minimally cleaned/deduped before storage).
+    generated_words: Mapped[list] = mapped_column(JSON, nullable=False)
+    # Optional — the host's email if we know it. Nullable since the
+    # create-game form doesn't collect email yet.
+    created_by_email: Mapped[str | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
+    # Bumped on every cache hit (see ``topic_generator.generate_word_list``).
+    times_used: Mapped[int] = mapped_column(nullable=False, default=0)
 
 
 def init_db(app: Flask) -> None:
