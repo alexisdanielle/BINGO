@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from flask import Flask
 
-from game.card_generator import FREE_LABEL, WORD_POOL
+from game.card_generator import FREE_LABEL
 from game.patterns import GRID_SIZE, PATTERN_TYPES
 from models import Call, Game, db
 from sockets import socketio
@@ -80,7 +80,8 @@ def run_call_loop(app: Flask, game_id: int) -> None:
     the 3rd winner) or when the word pool is exhausted.
 
     Each iteration: read fresh game state, pick a random uncalled word,
-    persist a Call row, broadcast ``word_called``, then sleep.
+    persist a Call row (with its description), broadcast ``word_called``
+    carrying both word and description, then sleep.
     """
     with app.app_context():
         try:
@@ -89,8 +90,20 @@ def run_call_loop(app: Flask, game_id: int) -> None:
                 log.warning("run_call_loop: game %s not found", game_id)
                 return
 
+            # Pull the host-finalized topic words. Map word -> description
+            # so we can attach descriptions to Call rows and socket
+            # broadcasts without re-scanning the list each iteration.
+            game_words = game.game_words or []
+            descriptions: dict[str, str] = {
+                entry["word"]: entry.get("description", "")
+                for entry in game_words
+            }
             already_called = {c.word for c in game.calls}
-            remaining = [w for w in WORD_POOL if w not in already_called]
+            remaining = [
+                entry["word"]
+                for entry in game_words
+                if entry["word"] not in already_called
+            ]
             random.shuffle(remaining)
 
             while True:
@@ -102,9 +115,10 @@ def run_call_loop(app: Flask, game_id: int) -> None:
                     return
 
                 if not remaining:
-                    # Pool exhausted before 3 winners. Won't happen in
-                    # normal play (75 words >> 25 cells) but we end the
-                    # game cleanly so clients aren't stuck.
+                    # Pool exhausted before 3 winners. Unlikely in normal
+                    # play (host-accepted lists are >=25 words and cards
+                    # use only 24) but we end the game cleanly so
+                    # clients aren't stuck.
                     game.status = "finished"
                     game.finished_at = _utcnow()
                     db.session.commit()
@@ -116,11 +130,15 @@ def run_call_loop(app: Flask, game_id: int) -> None:
                     return
 
                 word = remaining.pop()
+                description = descriptions.get(word, "")
                 next_index = (
                     max((c.call_index for c in game.calls), default=0) + 1
                 )
                 call = Call(
-                    game_id=game.id, word=word, call_index=next_index
+                    game_id=game.id,
+                    word=word,
+                    description=description,
+                    call_index=next_index,
                 )
                 db.session.add(call)
                 db.session.commit()
@@ -130,6 +148,7 @@ def run_call_loop(app: Flask, game_id: int) -> None:
                     {
                         "game_id": game.id,
                         "word": word,
+                        "description": description,
                         "call_index": next_index,
                     },
                     to=f"game:{game.id}",

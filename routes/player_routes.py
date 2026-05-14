@@ -14,7 +14,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from game.card_generator import WORD_POOL, generate_card
+from game.card_generator import generate_card
 from game.game_engine import which_pattern_matched
 from models import Card, Game, Win, db
 from sockets import socketio
@@ -66,8 +66,14 @@ def join_game(game_id: int):
             jsonify(error=f"game is {game.status}, not accepting joins"),
             409,
         )
+    if not game.game_words:
+        # Defensive: create_game enforces this, so we should never get
+        # here unless the DB was populated by hand.
+        return jsonify(error="game has no word list configured"), 409
 
-    card_data = generate_card(WORD_POOL)
+    # Cards are drawn from the host-accepted topic words (iteration 2).
+    # The descriptions live on the game; cards only carry the words.
+    card_data = generate_card([w["word"] for w in game.game_words])
     join_token = secrets.token_urlsafe(16)
     card = Card(
         game_id=game.id,
