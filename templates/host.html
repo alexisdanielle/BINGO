@@ -9,6 +9,15 @@ block content %}
       <input name="host_name" required autocomplete="off" />
     </label>
     <label
+      >Topic
+      <input
+        name="topic"
+        required
+        autocomplete="off"
+        placeholder="e.g. CGI history, Canadian geography, Python basics"
+      />
+    </label>
+    <label
       >Pattern
       <select name="pattern">
         <option value="horizontal">Horizontal line</option>
@@ -27,8 +36,29 @@ block content %}
         max="60"
       />
     </label>
-    <button type="submit">Create game</button>
+    <button type="submit" id="generate-button">Generate word list</button>
   </form>
+  <p id="generate-status" class="muted" hidden></p>
+  <p id="create-error" class="error" hidden></p>
+</section>
+
+<section id="topic-section" hidden>
+  <h2>Review the topic: <span id="topic-display"></span></h2>
+  <p class="muted">
+    Edit any word or description, delete entries you don't like, or
+    regenerate the whole list. You need at least 25 words to start.
+  </p>
+  <div class="topic-controls">
+    <button id="regenerate-button" type="button">Regenerate all</button>
+    <button id="accept-button" type="button">Accept and open lobby</button>
+  </div>
+  <p>
+    Words: <span id="word-count">0</span>
+    <span id="word-count-warning" class="error" hidden>
+      (need at least 25)
+    </span>
+  </p>
+  <ul id="topic-words" class="topic-list"></ul>
 </section>
 
 <section id="lobby-section" hidden>
@@ -45,6 +75,7 @@ block content %}
     <span class="label">Now calling:</span>
     <span id="current-word">—</span>
   </div>
+  <p id="current-description" class="description" aria-live="polite"></p>
   <h3>Leaderboard</h3>
   <ol id="leaderboard">
     <li class="placeholder">1st: —</li>

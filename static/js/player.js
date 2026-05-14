@@ -120,9 +120,11 @@ function connectSocket() {
   socket.on("connect", () => {
     socket.emit("join_game_room", { game_id: state.gameId });
   });
-  socket.on("word_called", ({ word }) => {
+  socket.on("word_called", ({ word, description }) => {
     state.calledWords.push(word);
     $("current-word").textContent = word;
+    // Description is optional — older games (no topic) emit no description.
+    $("current-description").textContent = description || "";
   });
   socket.on("game_ended", () => {
     // Pull the final state from the server so the leaderboard reflects

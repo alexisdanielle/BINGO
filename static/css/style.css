@@ -117,8 +117,67 @@ button:hover { background: var(--accent-dark); }
 
 ol, ul { padding-left: 1.5rem; }
 .placeholder { color: var(--muted); }
+.muted { color: var(--muted); font-size: 0.9rem; }
 .error { color: var(--danger); }
 .success { color: var(--success); font-weight: bold; }
+.description {
+  margin: 0.25rem 0 1rem;
+  color: var(--muted);
+  font-style: italic;
+  min-height: 1.5em;
+}
+
+/* Topic-review section: an editable list of word/description rows. */
+.topic-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+  flex-wrap: wrap;
+}
+.topic-controls button:disabled {
+  background: var(--border);
+  cursor: not-allowed;
+}
+.topic-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.topic-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 0.5rem;
+  align-items: start;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: white;
+  margin-bottom: 0.5rem;
+}
+.topic-row input.topic-word,
+.topic-row textarea.topic-desc {
+  width: 100%;
+  padding: 0.4rem;
+  font-size: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+}
+.topic-row textarea.topic-desc {
+  resize: vertical;
+}
+.topic-row button.delete-row {
+  background: var(--danger);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+.topic-row button.delete-row:hover { background: #b71c1c; }
+
+@media (max-width: 540px) {
+  .topic-row {
+    grid-template-columns: 1fr;
+  }
+}
 
 a { color: var(--accent); }
 
