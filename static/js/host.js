@@ -256,6 +256,7 @@ function connectSocket() {
     wordEl.classList.remove("pop");
     void wordEl.offsetWidth;
     wordEl.textContent = word;
+    fitCurrentWord(); // scale font so the word never wraps
     wordEl.classList.add("pop");
     $("current-description").textContent = description || "";
     $("call-count").textContent = state.calledWords.length;
@@ -264,7 +265,7 @@ function connectSocket() {
     li.title = description || "";  // tooltip shows description on hover
     li.textContent = word;
     $("call-history").prepend(li);
-    speak(word, description);
+    speak(word);
   });
   socket.on("win_declared", ({ place, player_name, pattern_matched }) => {
     state.wins.push({ place, player_name, pattern_matched });
@@ -290,6 +291,21 @@ function connectSocket() {
         : `Game ended (${reason}).`;
     renderLeaderboard("final-leaderboard");
   });
+}
+
+// --- Word display fit ---------------------------------------------------
+// Shrinks the font so the called word always fits on one line.
+function fitCurrentWord() {
+  const el = $("current-word");
+  if (!el) return;
+  el.style.fontSize = "";
+  const card = el.closest(".current-word-card");
+  const maxW = (card ? card.clientWidth : 300) - 64;
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  while (el.scrollWidth > maxW && size > 14) {
+    size -= 1;
+    el.style.fontSize = size + "px";
+  }
 }
 
 // --- Rendering ----------------------------------------------------------
@@ -409,17 +425,11 @@ function renderTopicHistory(topics) {
 }
 
 // --- Text-to-speech -----------------------------------------------------
-function speak(word, description) {
+function speak(word) {
   if (!("speechSynthesis" in window)) return;
-  // Cancel any in-flight utterance so words don't pile up if the host
-  // picked a short call interval (the new word truncates the old one).
+  // Cancel any in-flight utterance so words don't pile up at short intervals.
   speechSynthesis.cancel();
-  // Speak "<word>. <description>" so the audience hears both the term
-  // and a short factual blurb. The period gives the engine a natural
-  // pause between the two. If a description is missing (legacy games
-  // without a topic), fall back to just the word.
-  const text = description ? `${word}. ${description}` : word;
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.rate = 0.9; // slightly slower than default for clarity
+  const utt = new SpeechSynthesisUtterance(word);
+  utt.rate = 0.9;
   speechSynthesis.speak(utt);
 }

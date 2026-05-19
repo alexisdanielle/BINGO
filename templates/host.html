@@ -2,7 +2,7 @@
 block content %}
 
 <section id="create-section">
-  <h2>Create a game</h2>
+  <h2>🎮 Create a game</h2>
   <form id="create-form">
     <label
       >Host name
@@ -81,7 +81,7 @@ block content %}
 </section>
 
 <section id="topic-section" hidden>
-  <h2>Review the topic: <span id="topic-display"></span></h2>
+  <h2>📝 Review the topic: <span id="topic-display"></span></h2>
   <p class="muted">
     Edit any word or description, delete entries you don't like, or
     regenerate the whole list. You need at least 25 words to start.
@@ -100,8 +100,8 @@ block content %}
 </section>
 
 <section id="lobby-section" hidden>
-  <h2>Lobby — share this link</h2>
-  <p><a id="join-link" href="" target="_blank" rel="noopener"></a></p>
+  <h2>🚀 Lobby — share this link</h2>
+  <div class="join-link-box"><a id="join-link" href="" target="_blank" rel="noopener"></a></div>
   <p class="info-box">Share the link above with your players. Start the game once everyone has joined.</p>
   <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
     <button type="button" id="copy-link-button" class="secondary">Copy link</button>
@@ -112,7 +112,7 @@ block content %}
 </section>
 
 <section id="game-section" hidden>
-  <h2>Game in progress</h2>
+  <h2>🔴 Game in progress</h2>
   <div class="game-controls">
     <button type="button" id="pause-button" class="secondary">⏸ Pause</button>
     <button type="button" id="resume-button" class="secondary" hidden>▶ Resume</button>
@@ -131,7 +131,7 @@ block content %}
 </section>
 
 <section id="end-section" hidden>
-  <h2>Game ended</h2>
+  <h2>🏆 Game ended</h2>
   <p id="end-reason"></p>
   <h3>Final leaderboard</h3>
   <div id="final-leaderboard"></div>
@@ -139,7 +139,7 @@ block content %}
 
 <section id="history-section">
   <h2>
-    Past topics
+    📚 Past topics
     <button type="button" id="history-toggle" class="secondary" style="font-size:0.8rem;padding:0.3rem 0.7rem;margin-left:0.75rem;">Show</button>
   </h2>
   <div id="history-panel" hidden>
@@ -159,6 +159,57 @@ block content %}
     </table>
   </div>
 </section>
+
+<button class="help-btn" id="help-btn" aria-label="How to host">i</button>
+
+<div class="help-overlay" id="help-overlay" role="dialog" aria-modal="true" aria-label="How to host">
+  <div class="help-modal">
+    <button class="help-close" id="help-close" aria-label="Close">x</button>
+    <p class="help-modal-title">How to host a game</p>
+    <ol class="help-steps">
+      <li>
+        <span class="help-step-num">1</span>
+        <div><strong>Fill in the game details</strong><span>Enter your name, a topic (e.g. "CGI history"), the win pattern, call speed, and how many winners you want.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">2</span>
+        <div><strong>Review the word list</strong><span>The AI generates 30 topic-relevant words with descriptions. Edit or delete any you don't like — you need at least 25 to start.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">3</span>
+        <div><strong>Share the join link</strong><span>Once the lobby opens, copy the link and share it with players via Teams, email, or chat. Each player gets a unique card.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">4</span>
+        <div><strong>Start the game</strong><span>Click Start game when everyone has joined. Words are called automatically at the interval you set.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">5</span>
+        <div><strong>Pause and resume anytime</strong><span>Use the Pause button to hold the game — useful for breaks or questions. Players see a pause screen automatically.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">6</span>
+        <div><strong>Wins are validated automatically</strong><span>When a player clicks BINGO!, the server checks their card against called words. No manual verification needed.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">7</span>
+        <div><strong>Game ends automatically</strong><span>Once all winner spots are filled (or all words are called), the game ends and the final leaderboard is shown to everyone.</span></div>
+      </li>
+    </ol>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var overlay = document.getElementById("help-overlay");
+    var openModal  = function() { overlay.classList.add("open"); };
+    var closeModal = function() { overlay.classList.remove("open"); };
+    document.getElementById("help-btn").addEventListener("click", openModal);
+    document.getElementById("help-close").addEventListener("click", closeModal);
+    overlay.addEventListener("click", function(e) { if (e.target === overlay) closeModal(); });
+    document.addEventListener("keydown", function(e) { if (e.key === "Escape") closeModal(); });
+  })();
+</script>
 
 {% endblock %} {% block scripts %}
 <script src="{{ url_for('static', filename='js/host.js') }}"></script>

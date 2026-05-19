@@ -106,9 +106,14 @@ def _call_openai(prompt: str) -> str:
     gpt-4o-mini is chosen because it's fast, inexpensive, and reliable at
     returning structured JSON — important for the topic generator.
     """
+    import httpx
     from openai import OpenAI
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    # On corporate networks with SSL inspection, Python's bundled certs
+    # don't include the company's root CA. verify=False bypasses the check
+    # so the demo works on the CGI network. Remove this for production.
+    http_client = httpx.Client(verify=False)
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], http_client=http_client)
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=[{"role": "user", "content": prompt}],

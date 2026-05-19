@@ -230,18 +230,44 @@ def _apply_migrations(app: Flask) -> None:
 
     SQLite's ALTER TABLE only supports ADD COLUMN, so each new field gets
     a safe idempotent check via PRAGMA table_info before being added.
+    New columns must be nullable or have a DEFAULT so existing rows are valid.
     """
     with app.app_context():
         engine = db.engine
         with engine.connect() as conn:
+            # ── games table ──────────────────────────────────────────────
             result = conn.execute(db.text("PRAGMA table_info(games)"))
-            existing = {row[1] for row in result}
-            if "max_winners" not in existing:
-                conn.execute(
-                    db.text(
-                        "ALTER TABLE games ADD COLUMN max_winners INTEGER NOT NULL DEFAULT 3"
-                    )
+            games_cols = {row[1] for row in result}
+
+            pending_games = []
+            if "max_winners" not in games_cols:
+                pending_games.append(
+                    "ALTER TABLE games ADD COLUMN max_winners INTEGER NOT NULL DEFAULT 3"
                 )
+            if "allowed_emails" not in games_cols:
+                # JSON column — NULL means no allowlist (anyone can join).
+                pending_games.append(
+                    "ALTER TABLE games ADD COLUMN allowed_emails TEXT"
+                )
+
+            for sql in pending_games:
+                conn.execute(db.text(sql))
+            if pending_games:
+                conn.commit()
+
+            # ── cards table ──────────────────────────────────────────────
+            result = conn.execute(db.text("PRAGMA table_info(cards)"))
+            cards_cols = {row[1] for row in result}
+
+            pending_cards = []
+            if "player_email" not in cards_cols:
+                pending_cards.append(
+                    "ALTER TABLE cards ADD COLUMN player_email TEXT"
+                )
+
+            for sql in pending_cards:
+                conn.execute(db.text(sql))
+            if pending_cards:
                 conn.commit()
 
 

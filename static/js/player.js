@@ -34,9 +34,7 @@ function speak(word, description) {
   if (state.muted) return;
   if (!("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(
-    description ? `${word}. ${description}` : word
-  );
+  const utt = new SpeechSynthesisUtterance(word);
   utt.rate = 0.9;
   speechSynthesis.speak(utt);
 }
@@ -77,6 +75,13 @@ function show(name) {
 
 function showJoinStep(name) {
   for (const [key, el] of Object.entries(joinSteps)) el.hidden = key !== name;
+  // Animate the step progress indicator (email=0, otp=1, name=2)
+  const order = ["email", "otp", "name"];
+  const current = order.indexOf(name);
+  document.querySelectorAll(".step-item").forEach((el, i) => {
+    el.classList.toggle("done", i < current);
+    el.classList.toggle("active", i === current);
+  });
 }
 
 function showFieldError(id, msg) {
@@ -231,9 +236,11 @@ function checkWinCondition() {
   if (!state.card || !state.pattern) return false;
   const calledSet = new Set(state.calledWords.map((w) => w.toLowerCase()));
   return getPatterns(state.pattern).some((pattern) =>
-    pattern.every(([r, c]) =>
-      state.card[r][c] === "FREE" || calledSet.has(state.card[r][c].toLowerCase())
-    )
+    pattern.every(([r, c]) => {
+      if (state.card[r][c] === "FREE") return true;
+      // Word must have been called AND the player must have clicked the cell.
+      return calledSet.has(state.card[r][c].toLowerCase()) && state.marked.has(`${r},${c}`);
+    })
   );
 }
 
@@ -242,6 +249,22 @@ function updateBingoButton() {
   const ready = checkWinCondition();
   btn.disabled = !ready;
   btn.classList.toggle("ready", ready);
+}
+
+// --- Word display fit ----------------------------------------------------
+// Shrinks the font so the word always stays on a single line regardless of
+// how long the phrase is. Called each time a new word is set.
+function fitCurrentWord() {
+  const el = $("current-word");
+  if (!el) return;
+  el.style.fontSize = ""; // let CSS set the starting size
+  const card = el.closest(".current-word-card");
+  const maxW = (card ? card.clientWidth : 300) - 64; // 32px padding each side
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  while (el.scrollWidth > maxW && size > 14) {
+    size -= 1;
+    el.style.fontSize = size + "px";
+  }
 }
 
 // --- Card rendering ------------------------------------------------------
@@ -313,6 +336,7 @@ function connectSocket() {
     wordEl.classList.remove("pop");
     void wordEl.offsetWidth; // flush reflow so animation restarts
     wordEl.textContent = word;
+    fitCurrentWord(); // scale font so the word never wraps
     wordEl.classList.add("pop");
     $("current-description").textContent = description || "";
     speak(word, description);
