@@ -6,6 +6,15 @@ attribute into Flask's config dict — the standard Flask pattern.
 import os
 from pathlib import Path
 
+# Load .env before the Config class is defined so every os.environ.get()
+# below sees the values from the file. override=True makes .env win over
+# any stale shell-exported variables of the same name.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass
+
 BASE_DIR = Path(__file__).resolve().parent
 INSTANCE_DIR = BASE_DIR / "instance"
 # Make sure the instance dir exists before SQLite tries to write into it.

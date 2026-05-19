@@ -20,10 +20,10 @@ log = logging.getLogger(__name__)
 # type. Stored in ``wins.pattern_matched`` so the leaderboard / audit
 # trail records *which* line was completed (e.g. "row_2" = third row).
 _PATTERN_LABELS: dict[str, list[str]] = {
-    "horizontal": [f"row_{r}" for r in range(GRID_SIZE)],
-    "vertical": [f"col_{c}" for c in range(GRID_SIZE)],
-    "diagonal": ["diag_main", "diag_anti"],
-    "full_house": ["full_house"],
+    "horizontal": [f"Row {r + 1}" for r in range(GRID_SIZE)],
+    "vertical": [f"Column {c + 1}" for c in range(GRID_SIZE)],
+    "diagonal": ["Main diagonal", "Anti-diagonal"],
+    "full_house": ["Full house"],
 }
 
 
@@ -107,10 +107,16 @@ def run_call_loop(app: Flask, game_id: int) -> None:
             random.shuffle(remaining)
 
             while True:
-                # ``Session.commit`` expires loaded objects, so attribute
-                # access on ``game`` after the previous iteration's commit
-                # re-issues a SELECT — picking up status changes made by
-                # other requests (e.g. a 3rd-winner /bingo).
+                # After each commit, SQLAlchemy expires the game object so
+                # the next attribute access re-issues a SELECT — picking up
+                # status changes from other requests (win claims, pause).
+                if game.status == "paused":
+                    # Poll every second while paused; explicit refresh needed
+                    # because there's no commit to expire the object.
+                    socketio.sleep(1)
+                    db.session.refresh(game)
+                    continue
+
                 if game.status != "active":
                     return
 

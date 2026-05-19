@@ -288,6 +288,8 @@ def join_game(game_id: int):
             player_name=player_name,
             card=card_data,
             join_token=join_token,
+            pattern=game.pattern,
+            max_winners=game.max_winners,
         ),
         201,
     )
@@ -334,8 +336,8 @@ def claim_bingo(game_id: int):
             return jsonify(error=f"game is {game.status}, can't claim now"), 409
         if any(w.card_id == card.id for w in game.wins):
             return jsonify(error="you have already won this game"), 409
-        if len(game.wins) >= 3:
-            return jsonify(error="all 3 places are taken"), 409
+        if len(game.wins) >= game.max_winners:
+            return jsonify(error="all places are taken"), 409
 
         called = {c.word for c in game.calls}
         matched = which_pattern_matched(card.card_data, called, game.pattern)
@@ -351,11 +353,11 @@ def claim_bingo(game_id: int):
             validated=True,
         )
         db.session.add(win)
-        if place == 3:
+        if place == game.max_winners:
             game.status = "finished"
             game.finished_at = _utcnow()
         db.session.commit()
-        is_final = place == 3
+        is_final = place == game.max_winners
 
     # Outside the lock so emits don't block other claimants.
     socketio.emit(
@@ -371,7 +373,7 @@ def claim_bingo(game_id: int):
     if is_final:
         socketio.emit(
             "game_ended",
-            {"game_id": game.id, "reason": "third_winner"},
+            {"game_id": game.id, "reason": "last_winner"},
             to=f"game:{game.id}",
         )
 

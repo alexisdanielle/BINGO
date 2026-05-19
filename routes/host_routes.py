@@ -6,6 +6,7 @@ must round-trip on subsequent host calls (D9).
 """
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import datetime, timezone
 
@@ -147,6 +148,13 @@ def create_game():
     if interval < 1:
         return jsonify(error="call_interval_seconds must be >= 1"), 400
 
+    try:
+        max_winners = int(data.get("max_winners", 3))
+    except (TypeError, ValueError):
+        return jsonify(error="max_winners must be an integer"), 400
+    if not 1 <= max_winners <= 5:
+        return jsonify(error="max_winners must be between 1 and 5"), 400
+
     cleaned_words = _validate_game_words(data.get("game_words"))
     if cleaned_words is None:
         return (
@@ -170,8 +178,6 @@ def create_game():
     allowed_emails: list[str] | None = None
     if raw_allowlist:
         if isinstance(raw_allowlist, str):
-            # Accept a comma or newline separated string for convenience.
-            import re
             parts = re.split(r"[,\n\r]+", raw_allowlist)
         elif isinstance(raw_allowlist, list):
             parts = raw_allowlist
@@ -184,6 +190,7 @@ def create_game():
         pattern=pattern,
         host_token=secrets.token_urlsafe(16),
         call_interval_seconds=interval,
+        max_winners=max_winners,
         game_words=cleaned_words,
         allowed_emails=allowed_emails,
     )
@@ -197,6 +204,7 @@ def create_game():
             join_link=f"/play?game_id={game.id}",
             pattern=pattern,
             call_interval_seconds=interval,
+            max_winners=max_winners,
             status=game.status,
             word_count=len(cleaned_words),
         ),
@@ -234,6 +242,42 @@ def start_game(game_id: int):
         to=f"game:{game.id}",
     )
     return jsonify(status="active", game_id=game.id), 200
+
+
+@host_bp.post("/api/games/<int:game_id>/pause")
+def pause_game(game_id: int):
+    """Pause word calling without ending the game.
+
+    Sets status to 'paused'; the calling loop polls and waits. Host can
+    call /resume to continue from where the game left off.
+    """
+    game = db.session.get(Game, game_id)
+    if game is None:
+        return jsonify(error="game not found"), 404
+    if not _is_host(game):
+        return jsonify(error="invalid host token"), 401
+    if game.status != "active":
+        return jsonify(error=f"cannot pause a {game.status} game"), 409
+    game.status = "paused"
+    db.session.commit()
+    socketio.emit("game_paused", {"game_id": game.id}, to=f"game:{game.id}")
+    return jsonify(status="paused"), 200
+
+
+@host_bp.post("/api/games/<int:game_id>/resume")
+def resume_game(game_id: int):
+    """Resume a paused game; the calling loop will pick up on the next tick."""
+    game = db.session.get(Game, game_id)
+    if game is None:
+        return jsonify(error="game not found"), 404
+    if not _is_host(game):
+        return jsonify(error="invalid host token"), 401
+    if game.status != "paused":
+        return jsonify(error=f"cannot resume a {game.status} game"), 409
+    game.status = "active"
+    db.session.commit()
+    socketio.emit("game_resumed", {"game_id": game.id}, to=f"game:{game.id}")
+    return jsonify(status="active"), 200
 
 
 @host_bp.get("/api/topics/history")
@@ -276,6 +320,7 @@ def get_state(game_id: int):
         pattern=game.pattern,
         host_name=game.host_name,
         call_interval_seconds=game.call_interval_seconds,
+        max_winners=game.max_winners,
         called_words=[c.word for c in calls_sorted],
         players=[c.player_name for c in game.cards],
         wins=[

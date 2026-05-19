@@ -63,6 +63,8 @@ class Game(db.Model):
     host_token: Mapped[str] = mapped_column(nullable=False, unique=True)
     # Per-game cadence (D4). 5s default; host can override at creation.
     call_interval_seconds: Mapped[int] = mapped_column(nullable=False, default=5)
+    # How many winners before the game ends (1–5). Defaults to 3 (1st/2nd/3rd).
+    max_winners: Mapped[int] = mapped_column(nullable=False, default=3)
     # Finalized list of {"word": str, "description": str} dicts the host
     # accepted at game creation. Nullable for back-compat with games
     # created before iteration 2; new games always populate it.
@@ -223,6 +225,26 @@ class Topic(db.Model):
     times_used: Mapped[int] = mapped_column(nullable=False, default=0)
 
 
+def _apply_migrations(app: Flask) -> None:
+    """Add columns introduced after the initial schema without losing data.
+
+    SQLite's ALTER TABLE only supports ADD COLUMN, so each new field gets
+    a safe idempotent check via PRAGMA table_info before being added.
+    """
+    with app.app_context():
+        engine = db.engine
+        with engine.connect() as conn:
+            result = conn.execute(db.text("PRAGMA table_info(games)"))
+            existing = {row[1] for row in result}
+            if "max_winners" not in existing:
+                conn.execute(
+                    db.text(
+                        "ALTER TABLE games ADD COLUMN max_winners INTEGER NOT NULL DEFAULT 3"
+                    )
+                )
+                conn.commit()
+
+
 def init_db(app: Flask) -> None:
     """Create any missing tables for the app's bound database.
 
@@ -232,3 +254,4 @@ def init_db(app: Flask) -> None:
     """
     with app.app_context():
         db.create_all()
+    _apply_migrations(app)

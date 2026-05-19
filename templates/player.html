@@ -75,13 +75,16 @@
 
 <section id="game-section" hidden>
   <p>Playing as: <strong id="who-am-i"></strong></p>
+  <div id="paused-banner" class="paused-banner" hidden>
+    ⏸ Game is paused — stand by
+  </div>
   <div class="current-word">
     <span class="label">Now calling:</span>
     <span id="current-word">—</span>
   </div>
   <p id="current-description" class="description" aria-live="polite"></p>
   <table id="bingo-card"></table>
-  <button id="bingo-button" type="button">BINGO!</button>
+  <button id="bingo-button" type="button" disabled>BINGO!</button>
   <p id="claim-result" aria-live="polite"></p>
 </section>
 

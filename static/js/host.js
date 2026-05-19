@@ -5,13 +5,15 @@
 const state = {
   // Draft details captured from the create form before a game exists.
   // We hold these aside while the host reviews the generated topic list.
-  draft: null, // {host_name, topic, pattern, call_interval_seconds, allowed_emails}
+  draft: null, // {host_name, topic, pattern, call_interval_seconds, max_winners, allowed_emails}
   topicWords: [], // [{word, description}, ...] -- editable preview
   gameId: null,
   hostToken: null,
   players: [],
   calledWords: [],
   wins: [],
+  maxWinners: 3,
+  topicHistoryCache: null, // fetched once per page load
 };
 
 const $ = (id) => document.getElementById(id);
@@ -26,6 +28,17 @@ const sections = {
 
 let socket = null;
 
+// --- Copy link (registered once; reads link from anchor text) -----------
+$("copy-link-button").addEventListener("click", () => {
+  const link = $("join-link").href;
+  if (!link) return;
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = $("copy-link-button");
+    btn.textContent = "Copied!";
+    setTimeout(() => (btn.textContent = "Copy link"), 2000);
+  });
+});
+
 // --- Step 1: capture form, generate topic preview -----------------------
 $("create-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -38,6 +51,7 @@ $("create-form").addEventListener("submit", async (e) => {
     topic: (data.get("topic") || "").trim(),
     pattern: data.get("pattern") || "horizontal",
     call_interval_seconds: Number(data.get("call_interval_seconds") || 5),
+    max_winners: Number(data.get("max_winners") || 3),
     allowed_emails: allowedEmailsRaw || null,
   };
   if (!state.draft.topic) {
@@ -173,6 +187,7 @@ $("accept-button").addEventListener("click", async () => {
   const json = await res.json();
   state.gameId = json.game_id;
   state.hostToken = json.host_token;
+  state.maxWinners = json.max_winners || 3;
 
   const link = `${location.origin}/play?game_id=${json.game_id}`;
   const a = $("join-link");
@@ -181,14 +196,6 @@ $("accept-button").addEventListener("click", async () => {
 
   show("lobby");
   connectSocket();
-
-  $("copy-link-button").addEventListener("click", () => {
-    navigator.clipboard.writeText(link).then(() => {
-      const btn = $("copy-link-button");
-      btn.textContent = "Copied!";
-      setTimeout(() => (btn.textContent = "Copy link"), 2000);
-    });
-  });
 });
 
 // --- Step 3: start game -------------------------------------------------
@@ -203,6 +210,29 @@ $("start-button").addEventListener("click", async () => {
   }
   // Section swap happens on the "game_started" event, so all clients
   // (host + players) move forward together.
+});
+
+// --- Pause / Resume -----------------------------------------------------
+$("pause-button").addEventListener("click", async () => {
+  const res = await fetch(`/api/games/${state.gameId}/pause`, {
+    method: "POST",
+    headers: { "X-Host-Token": state.hostToken },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert("Failed to pause: " + (err.error || res.status));
+  }
+});
+
+$("resume-button").addEventListener("click", async () => {
+  const res = await fetch(`/api/games/${state.gameId}/resume`, {
+    method: "POST",
+    headers: { "X-Host-Token": state.hostToken },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert("Failed to resume: " + (err.error || res.status));
+  }
 });
 
 // --- Sockets ------------------------------------------------------------
@@ -237,11 +267,24 @@ function connectSocket() {
     state.wins.push({ place, player_name, pattern_matched });
     renderLeaderboard("leaderboard");
   });
+  socket.on("game_paused", () => {
+    $("pause-button").hidden = true;
+    $("resume-button").hidden = false;
+    $("paused-badge").hidden = false;
+    $("current-word").textContent = "—";
+    $("current-description").textContent = "";
+  });
+  socket.on("game_resumed", () => {
+    $("pause-button").hidden = false;
+    $("resume-button").hidden = true;
+    $("paused-badge").hidden = true;
+  });
   socket.on("game_ended", ({ reason }) => {
     show("end");
+    const n = state.maxWinners;
     $("end-reason").textContent =
-      reason === "third_winner"
-        ? "We have our top 3 winners!"
+      reason === "last_winner"
+        ? `We have our top ${n} winner${n === 1 ? "" : "s"}!`
         : `Game ended (${reason}).`;
     renderLeaderboard("final-leaderboard");
   });
@@ -265,17 +308,26 @@ function renderPlayers() {
   }
 }
 
+function ordinal(n) {
+  if (n >= 11 && n <= 13) return n + "th";
+  const rem = n % 10;
+  if (rem === 1) return n + "st";
+  if (rem === 2) return n + "nd";
+  if (rem === 3) return n + "rd";
+  return n + "th";
+}
+
 function renderLeaderboard(targetId) {
   const container = $(targetId);
   container.innerHTML = "";
-  const labels = ["1st", "2nd", "3rd"];
-  for (let i = 0; i < 3; i++) {
+  const n = state.maxWinners;
+  for (let i = 0; i < n; i++) {
     const div = document.createElement("div");
     const win = state.wins.find((w) => w.place === i + 1);
-    div.className = `leaderboard-entry place-${i + 1}`;
+    div.className = `leaderboard-entry place-${Math.min(i + 1, 3)}`;
     const place = document.createElement("span");
     place.className = "place";
-    place.textContent = labels[i];
+    place.textContent = ordinal(i + 1);
     const name = document.createElement("span");
     if (win) {
       name.textContent = win.player_name;
@@ -313,6 +365,13 @@ $("history-toggle").addEventListener("click", async () => {
   }
   panel.hidden = false;
   btn.textContent = "Hide";
+
+  // Use cached data if already fetched to avoid redundant requests.
+  if (state.topicHistoryCache !== null) {
+    renderTopicHistory(state.topicHistoryCache);
+    return;
+  }
+
   const res = await fetch("/api/topics/history");
   if (!res.ok) {
     $("history-body").innerHTML =
@@ -320,23 +379,30 @@ $("history-toggle").addEventListener("click", async () => {
     return;
   }
   const { topics } = await res.json();
+  state.topicHistoryCache = topics;
+  renderTopicHistory(topics);
+});
+
+function renderTopicHistory(topics) {
+  const tbody = $("history-body");
   if (!topics.length) {
-    $("history-body").innerHTML =
+    tbody.innerHTML =
       '<tr><td colspan="4" class="muted" style="padding:1rem 0.75rem;">No topics generated yet.</td></tr>';
     return;
   }
-  $("history-body").innerHTML = topics
-    .map(
-      (t) =>
-        `<tr>
-          <td>${t.topic_name}</td>
-          <td>${t.word_count}</td>
-          <td>${t.times_used}</td>
-          <td>${t.created_at}</td>
-        </tr>`,
-    )
-    .join("");
-});
+  tbody.innerHTML = "";
+  for (const t of topics) {
+    const tr = document.createElement("tr");
+    // Build cells with textContent to avoid XSS from user-supplied topic names.
+    const cells = [t.topic_name, t.word_count, t.times_used, t.created_at];
+    for (const val of cells) {
+      const td = document.createElement("td");
+      td.textContent = val;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
 
 // --- Text-to-speech -----------------------------------------------------
 function speak(word, description) {

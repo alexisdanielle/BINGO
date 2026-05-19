@@ -37,6 +37,16 @@ block content %}
       />
     </label>
     <label
+      >Number of winners
+      <input
+        type="number"
+        name="max_winners"
+        value="3"
+        min="1"
+        max="5"
+      />
+    </label>
+    <label
       >Restrict to these emails <span class="muted">(optional — leave blank to allow anyone)</span>
       <textarea
         name="allowed_emails"
@@ -83,6 +93,11 @@ block content %}
 
 <section id="game-section" hidden>
   <h2>Game in progress</h2>
+  <div class="game-controls">
+    <button type="button" id="pause-button" class="secondary">Pause</button>
+    <button type="button" id="resume-button" class="secondary" hidden>Resume</button>
+    <span id="paused-badge" class="paused-badge" hidden>⏸ Paused</span>
+  </div>
   <div class="current-word">
     <span class="label">Now calling:</span>
     <span id="current-word">—</span>
