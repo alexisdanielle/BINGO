@@ -32,7 +32,9 @@ player_bp = Blueprint("player", __name__)
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    # SQLite stores naive datetimes, so we strip tzinfo here to keep all
+    # comparisons against DB values consistent (naive UTC throughout).
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # Per-game lock so two near-simultaneous /bingo claims don't both
