@@ -247,19 +247,22 @@ function connectSocket() {
   });
   socket.on("game_started", () => {
     show("game");
+    document.body.classList.add("game-bg");
   });
   socket.on("word_called", ({ word, description, call_index }) => {
     state.calledWords.push(word);
-    $("current-word").textContent = word;
+    // Animate the word display
+    const wordEl = $("current-word");
+    wordEl.classList.remove("pop");
+    void wordEl.offsetWidth;
+    wordEl.textContent = word;
+    wordEl.classList.add("pop");
     $("current-description").textContent = description || "";
     $("call-count").textContent = state.calledWords.length;
+    // Word chips — newest first, styled in call-history CSS
     const li = document.createElement("li");
-    // Show the description inline with each historical call so the host
-    // has a teleprompter-style script during the demo.
-    li.textContent = description
-      ? `${call_index}. ${word} — ${description}`
-      : `${call_index}. ${word}`;
-    // Newest first so the host sees the latest at the top.
+    li.title = description || "";  // tooltip shows description on hover
+    li.textContent = word;
     $("call-history").prepend(li);
     speak(word, description);
   });
@@ -271,8 +274,7 @@ function connectSocket() {
     $("pause-button").hidden = true;
     $("resume-button").hidden = false;
     $("paused-badge").hidden = false;
-    $("current-word").textContent = "—";
-    $("current-description").textContent = "";
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
   });
   socket.on("game_resumed", () => {
     $("pause-button").hidden = false;
@@ -295,6 +297,8 @@ function show(name) {
   for (const [key, el] of Object.entries(sections)) {
     el.hidden = key !== name;
   }
+  if (name === "game" || name === "end") document.body.classList.add("game-bg");
+  else document.body.classList.remove("game-bg");
 }
 
 function renderPlayers() {

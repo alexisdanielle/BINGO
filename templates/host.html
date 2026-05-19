@@ -18,12 +18,32 @@ block content %}
       />
     </label>
     <label
-      >Pattern
+      >Win condition
       <select name="pattern">
-        <option value="horizontal">Horizontal line</option>
-        <option value="vertical">Vertical line</option>
-        <option value="diagonal">Diagonal</option>
-        <option value="full_house">Full house</option>
+        <optgroup label="Any line (first player to complete any)">
+          <option value="horizontal">Any horizontal line (any row)</option>
+          <option value="vertical">Any vertical line (any column)</option>
+          <option value="diagonal">Any diagonal</option>
+          <option value="full_house">Full house (entire card)</option>
+        </optgroup>
+        <optgroup label="Specific row">
+          <option value="row_1">Row 1 — top row</option>
+          <option value="row_2">Row 2</option>
+          <option value="row_3">Row 3 — middle row</option>
+          <option value="row_4">Row 4</option>
+          <option value="row_5">Row 5 — bottom row</option>
+        </optgroup>
+        <optgroup label="Specific column">
+          <option value="col_1">Column 1 — left</option>
+          <option value="col_2">Column 2</option>
+          <option value="col_3">Column 3 — centre</option>
+          <option value="col_4">Column 4</option>
+          <option value="col_5">Column 5 — right</option>
+        </optgroup>
+        <optgroup label="Specific diagonal">
+          <option value="diag_main">Main diagonal ↘ (top-left to bottom-right)</option>
+          <option value="diag_anti">Anti-diagonal ↙ (top-right to bottom-left)</option>
+        </optgroup>
       </select>
     </label>
     <label
@@ -94,18 +114,19 @@ block content %}
 <section id="game-section" hidden>
   <h2>Game in progress</h2>
   <div class="game-controls">
-    <button type="button" id="pause-button" class="secondary">Pause</button>
-    <button type="button" id="resume-button" class="secondary" hidden>Resume</button>
+    <button type="button" id="pause-button" class="secondary">⏸ Pause</button>
+    <button type="button" id="resume-button" class="secondary" hidden>▶ Resume</button>
     <span id="paused-badge" class="paused-badge" hidden>⏸ Paused</span>
   </div>
-  <div class="current-word">
-    <span class="label">Now calling:</span>
+  <div class="current-word-card" aria-live="polite">
+    <div class="cw-label">Now calling</div>
     <span id="current-word">—</span>
+    <p id="current-description"></p>
+    <span class="call-chip">Word <span id="call-count">0</span></span>
   </div>
-  <p id="current-description" class="description" aria-live="polite"></p>
   <h3>Leaderboard</h3>
   <div id="leaderboard"></div>
-  <h3>Called words (<span id="call-count">0</span>)</h3>
+  <h3>Called words</h3>
   <ul id="call-history"></ul>
 </section>
 

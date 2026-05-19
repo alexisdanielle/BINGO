@@ -1,4 +1,4 @@
-/* CGI brand tokens */
+/* ── CGI brand tokens ── */
 :root {
   --bg: #f7f8fa;
   --fg: #1a1a2e;
@@ -14,6 +14,9 @@
   --border: #d0d5dd;
   --card-bg: #ffffff;
   --header-height: 56px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.16), 0 3px 8px rgba(0,0,0,0.08);
 }
 
 * { box-sizing: border-box; }
@@ -24,6 +27,21 @@ body {
   background: var(--bg);
   color: var(--fg);
   line-height: 1.5;
+  transition: background 0.4s ease;
+}
+
+/* ── Full-screen CGI background (activated when game is live) ── */
+body.game-bg {
+  background: url('/static/img/cgi-bg.jpg') center / cover no-repeat fixed;
+}
+
+body.game-bg main {
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 16px;
+  margin: 1.25rem auto;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.6);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 /* ── Header ── */
@@ -35,7 +53,9 @@ header {
   align-items: center;
   padding: 0 1.25rem;
   gap: 0.75rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+  position: relative;
+  z-index: 10;
 }
 .header-logo {
   height: 32px;
@@ -43,7 +63,6 @@ header {
   display: block;
 }
 .header-logo-placeholder {
-  /* shown when no logo file is present */
   font-size: 1.4rem;
   font-weight: 800;
   letter-spacing: -0.5px;
@@ -103,7 +122,7 @@ form textarea {
   margin-top: 0.25rem;
   background: white;
   color: var(--fg);
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
   font-family: inherit;
 }
 form input:focus,
@@ -124,10 +143,21 @@ button {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
 }
-button:hover { background: var(--accent-dark); box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; box-shadow: none; }
+button:hover {
+  background: var(--accent-dark);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+button:active { transform: translateY(0); }
+button:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
 
 button.secondary {
   background: white;
@@ -136,25 +166,79 @@ button.secondary {
 }
 button.secondary:hover { background: var(--accent-light); box-shadow: none; }
 
-button.danger {
-  background: var(--danger);
-}
+button.danger { background: var(--danger); }
 button.danger:hover { background: var(--danger-dark); }
 
-/* ── Word display ── */
-.current-word {
+/* ── Current-word display — the centrepiece ── */
+.current-word-card {
+  background: linear-gradient(135deg, var(--accent-dark) 0%, var(--accent) 100%);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem 1rem;
   margin: 1rem 0;
-  font-size: 1.4rem;
+  box-shadow: var(--shadow-md);
+  color: white;
+  position: relative;
+  overflow: hidden;
 }
-.current-word .label {
-  font-size: 0.85rem;
-  color: var(--muted);
-  font-weight: 500;
+/* Subtle watermark circle behind the word */
+.current-word-card::before {
+  content: '';
+  position: absolute;
+  right: -20px;
+  top: -20px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  pointer-events: none;
+}
+.current-word-card .cw-label {
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-right: 0.5rem;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 0.3rem;
 }
-#current-word { font-weight: 700; color: var(--accent); }
+#current-word {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: white;
+  display: block;
+  line-height: 1.1;
+  word-break: break-word;
+}
+#current-description {
+  margin: 0.5rem 0 0;
+  color: rgba(255,255,255,0.82);
+  font-style: italic;
+  font-size: 0.9rem;
+  min-height: 1.3em;
+}
+
+/* Word pop-in animation */
+@keyframes word-pop {
+  0%   { transform: scale(0.7) translateY(6px); opacity: 0; }
+  65%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1) translateY(0); }
+}
+#current-word.pop {
+  animation: word-pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ── Call counter chip ── */
+.call-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255,255,255,0.18);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  margin-top: 0.5rem;
+}
 
 /* ── Bingo card ── */
 #bingo-card {
@@ -167,35 +251,69 @@ button.danger:hover { background: var(--danger-dark); }
 }
 #bingo-card td {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 7px;
   text-align: center;
-  height: 68px;
-  font-size: 0.85rem;
+  height: 70px;
+  font-size: 0.82rem;
   background: var(--card-bg);
   cursor: pointer;
   user-select: none;
   word-break: break-word;
   padding: 4px;
-  transition: background 0.12s, transform 0.08s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  box-shadow: var(--shadow-sm);
+  position: relative;
 }
-#bingo-card td:hover:not(.free):not(.marked) {
+#bingo-card td:hover:not(.free):not(.called) {
   background: var(--accent-light);
-  transform: scale(1.03);
+  transform: scale(1.04);
+  border-color: rgba(0,61,165,0.3);
 }
-#bingo-card td.marked {
-  background: var(--marked);
-  font-weight: 600;
+
+/* Called = word was officially announced; this is what wins */
+#bingo-card td.called {
+  background: var(--accent-light);
   border-color: var(--accent);
   color: var(--accent-dark);
+  font-weight: 600;
 }
+/* Called AND player-marked = acknowledged */
+#bingo-card td.called.marked {
+  background: var(--marked);
+  border-color: var(--accent);
+  border-width: 2px;
+  font-weight: 700;
+}
+/* Player-marked but NOT called — greyed out to signal it doesn't count */
+#bingo-card td.marked:not(.called):not(.free) {
+  background: #f0f0f0;
+  color: var(--muted);
+  border-color: #bbb;
+}
+/* FREE centre */
 #bingo-card td.free {
   background: var(--free);
   font-weight: 700;
   cursor: default;
   color: var(--accent);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   border-color: var(--accent-light);
+  border-width: 2px;
+}
+/* Cells that are part of the specific winning pattern (row/col/diagonal) */
+#bingo-card td.target:not(.called):not(.free):not(.marked) {
+  border-color: rgba(0,61,165,0.25);
+  background: rgba(232,238,249,0.55);
+}
+
+/* Cell pop when a new word is called and it's on the card */
+@keyframes cell-called {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(0,61,165,0.2); }
+  100% { transform: scale(1); }
+}
+#bingo-card td.just-called {
+  animation: cell-called 0.4s ease-out;
 }
 
 /* ── BINGO! button ── */
@@ -205,15 +323,29 @@ button.danger:hover { background: var(--danger-dark); }
   margin: 1rem auto;
   padding: 0.9rem;
   font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  background: var(--danger);
-  border-radius: 8px;
-  box-shadow: 0 3px 8px rgba(192, 57, 43, 0.3);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: var(--border);
+  color: var(--muted);
+  border-radius: 10px;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
 }
-#bingo-button:hover {
-  background: var(--danger-dark);
-  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.4);
+#bingo-button.ready {
+  background: linear-gradient(135deg, var(--danger-dark), var(--danger));
+  color: white;
+  cursor: pointer;
+  animation: bingo-pulse 1.6s ease-in-out infinite;
+}
+#bingo-button.ready:hover {
+  transform: scale(1.02) translateY(-2px);
+  background: linear-gradient(135deg, var(--danger), #e74c3c);
+}
+@keyframes bingo-pulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(192,57,43,0.35); }
+  50%       { box-shadow: 0 4px 24px rgba(192,57,43,0.65), 0 0 0 6px rgba(192,57,43,0.12); }
 }
 
 /* ── Utility text ── */
@@ -248,10 +380,6 @@ ol, ul { padding-left: 1.5rem; }
   margin: 0.5rem 0 1rem;
   flex-wrap: wrap;
 }
-.topic-controls button:disabled {
-  background: var(--border);
-  cursor: not-allowed;
-}
 .topic-list {
   list-style: none;
   padding: 0;
@@ -267,6 +395,7 @@ ol, ul { padding-left: 1.5rem; }
   border-radius: 6px;
   background: white;
   margin-bottom: 0.5rem;
+  box-shadow: var(--shadow-sm);
 }
 .topic-row input.topic-word,
 .topic-row textarea.topic-desc {
@@ -317,19 +446,29 @@ ol, ul { padding-left: 1.5rem; }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
   margin-bottom: 0.4rem;
   background: white;
   border: 1px solid var(--border);
   font-size: 0.95rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+@keyframes win-slide-in {
+  from { transform: translateX(-12px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.leaderboard-entry.filled {
+  animation: win-slide-in 0.35s ease-out;
 }
 .leaderboard-entry .place {
   font-weight: 700;
   font-size: 1.1rem;
-  width: 2rem;
+  width: 2.2rem;
   text-align: center;
   color: var(--accent);
+  flex-shrink: 0;
 }
 .leaderboard-entry.place-1 { border-color: #c9a227; background: #fffdf0; }
 .leaderboard-entry.place-1 .place { color: #b8860b; }
@@ -337,6 +476,25 @@ ol, ul { padding-left: 1.5rem; }
 .leaderboard-entry.place-2 .place { color: #616161; }
 .leaderboard-entry.place-3 { border-color: #a0522d; background: #fff8f5; }
 .leaderboard-entry.place-3 .place { color: #8b4513; }
+
+/* ── Called-word history — tag chips ── */
+#call-history {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+}
+#call-history li {
+  background: var(--accent-light);
+  color: var(--accent-dark);
+  border: 1px solid rgba(0,61,165,0.18);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
 
 /* ── OTP / auth section ── */
 .otp-input {
@@ -348,49 +506,25 @@ ol, ul { padding-left: 1.5rem; }
   margin: 0 auto;
 }
 
-/* ── Links ── */
-a { color: var(--accent); }
-a:hover { color: var(--accent-dark); }
-
-/* ── Responsive ── */
-@media (max-width: 480px) {
-  #bingo-card td { height: 52px; font-size: 0.72rem; }
-  .current-word { font-size: 1.15rem; }
-  #bingo-button { font-size: 1.2rem; }
-}
-
-/* ── Called-word highlight (independent of player mark) ── */
-#bingo-card td.called:not(.marked):not(.free) {
-  background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent-dark);
-}
-
-/* ── BINGO! button — ready state (valid pattern found) ── */
-#bingo-button.ready {
-  background: var(--danger);
-  animation: pulse 1.4s infinite;
-}
-@keyframes pulse {
-  0%   { box-shadow: 0 3px 8px rgba(192,57,43,0.35); }
-  50%  { box-shadow: 0 4px 20px rgba(192,57,43,0.65); }
-  100% { box-shadow: 0 3px 8px rgba(192,57,43,0.35); }
-}
-
 /* ── Pause indicators ── */
 .paused-banner {
   background: #fff3cd;
   border: 1px solid #f0ad4e;
-  border-radius: 6px;
-  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
   font-weight: 600;
   color: #856404;
   text-align: center;
   margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
 }
-
 .paused-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   background: #fff3cd;
   border: 1px solid #f0ad4e;
   border-radius: 999px;
@@ -410,24 +544,15 @@ a:hover { color: var(--accent-dark); }
   flex-wrap: wrap;
 }
 
-/* ── CGI background on game sections ── */
-#game-section {
-  position: relative;
-  border-radius: 10px;
-  overflow: hidden;
-}
-#game-section::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url('/static/img/cgi-bg.jpg') center / cover no-repeat;
-  opacity: 0.10;
-  z-index: 0;
-  pointer-events: none;
-}
-#game-section > * {
-  position: relative;
-  z-index: 1;
+/* ── Links ── */
+a { color: var(--accent); }
+a:hover { color: var(--accent-dark); }
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  #bingo-card td { height: 54px; font-size: 0.72rem; }
+  #current-word { font-size: 1.7rem; }
+  #bingo-button { font-size: 1.2rem; }
 }
 
 /* ── Mute toggle (player page, pinned top-right) ── */

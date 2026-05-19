@@ -78,11 +78,11 @@
   <div id="paused-banner" class="paused-banner" hidden>
     ⏸ Game is paused — stand by
   </div>
-  <div class="current-word">
-    <span class="label">Now calling:</span>
+  <div class="current-word-card" aria-live="polite">
+    <div class="cw-label">Now calling</div>
     <span id="current-word">—</span>
+    <p id="current-description"></p>
   </div>
-  <p id="current-description" class="description" aria-live="polite"></p>
   <table id="bingo-card"></table>
   <button id="bingo-button" type="button" disabled>BINGO!</button>
   <p id="claim-result" aria-live="polite"></p>

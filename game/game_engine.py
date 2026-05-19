@@ -20,10 +20,16 @@ log = logging.getLogger(__name__)
 # type. Stored in ``wins.pattern_matched`` so the leaderboard / audit
 # trail records *which* line was completed (e.g. "row_2" = third row).
 _PATTERN_LABELS: dict[str, list[str]] = {
+    # "Any" categories — each sub-pattern gets its own label.
     "horizontal": [f"Row {r + 1}" for r in range(GRID_SIZE)],
     "vertical": [f"Column {c + 1}" for c in range(GRID_SIZE)],
     "diagonal": ["Main diagonal", "Anti-diagonal"],
     "full_house": ["Full house"],
+    # Specific single-line patterns — one label each.
+    **{f"row_{r + 1}": [f"Row {r + 1}"] for r in range(GRID_SIZE)},
+    **{f"col_{c + 1}": [f"Column {c + 1}"] for c in range(GRID_SIZE)},
+    "diag_main": ["Main diagonal"],
+    "diag_anti": ["Anti-diagonal"],
 }
 
 
