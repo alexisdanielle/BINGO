@@ -165,9 +165,17 @@ def run_call_loop(app: Flask, game_id: int) -> None:
                     },
                     to=f"game:{game.id}",
                 )
-                # ``socketio.sleep`` is the right primitive across all
-                # async modes (under threading it's just time.sleep).
-                socketio.sleep(game.call_interval_seconds)
+                # Sleep in 0.5-second steps so a host pause takes effect
+                # within ~0.5 s instead of waiting the full interval.
+                elapsed = 0.0
+                while elapsed < game.call_interval_seconds:
+                    socketio.sleep(0.5)
+                    db.session.refresh(game)
+                    if game.status == "paused":
+                        break  # exit sleep; outer loop polls until resume
+                    if game.status != "active":
+                        return  # game finished or reset while sleeping
+                    elapsed += 0.5
         except Exception:
             # Background tasks swallow exceptions silently otherwise —
             # log so we can debug a misbehaving loop.

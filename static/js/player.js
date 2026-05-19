@@ -328,12 +328,12 @@ function connectSocket() {
   });
 
   socket.on("game_paused", () => {
-    $("paused-banner").hidden = false;
+    $("pause-overlay").classList.add("visible");
     stopSpeaking(); // stop any in-flight TTS announcement
   });
 
   socket.on("game_resumed", () => {
-    $("paused-banner").hidden = true;
+    $("pause-overlay").classList.remove("visible");
   });
 
   socket.on("game_ended", () => {

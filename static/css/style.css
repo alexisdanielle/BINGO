@@ -91,7 +91,14 @@ main {
   padding: 1.5rem 1rem;
 }
 
-section { margin-bottom: 2rem; }
+section {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
 
 h2 {
   margin-top: 0;
@@ -507,20 +514,38 @@ ol, ul { padding-left: 1.5rem; }
 }
 
 /* ── Pause indicators ── */
-.paused-banner {
-  background: #fff3cd;
-  border: 1px solid #f0ad4e;
-  border-radius: 8px;
-  padding: 0.7rem 1rem;
-  font-weight: 600;
-  color: #856404;
-  text-align: center;
-  margin-bottom: 0.75rem;
-  display: flex;
+
+/* Full-screen overlay shown on player screens when host pauses.
+   JS adds/removes class .visible to show/hide it. */
+#pause-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 43, 78, 0.75);
+  z-index: 200;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  backdrop-filter: blur(4px);
 }
+#pause-overlay.visible { display: flex; }
+.pause-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem 3rem;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  max-width: 320px;
+}
+.pause-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+.pause-card h2 {
+  font-size: 1.5rem;
+  color: #003da5;
+  margin: 0 0 0.5rem;
+  border: none;
+  padding: 0;
+}
+.pause-card p { color: var(--muted); margin: 0; }
+
 .paused-badge {
   display: inline-flex;
   align-items: center;
