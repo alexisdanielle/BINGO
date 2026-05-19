@@ -19,7 +19,7 @@ from game.topic_generator import (
     TopicGenerationError,
     generate_word_list,
 )
-from models import Game, db
+from models import Game, Topic, db
 from sockets import socketio
 
 # Block game creation if the host's accepted word list can't fill a
@@ -165,12 +165,27 @@ def create_game():
             400,
         )
 
+    # Optional allowlist — host may paste a comma/newline list of emails.
+    raw_allowlist = data.get("allowed_emails")
+    allowed_emails: list[str] | None = None
+    if raw_allowlist:
+        if isinstance(raw_allowlist, str):
+            # Accept a comma or newline separated string for convenience.
+            import re
+            parts = re.split(r"[,\n\r]+", raw_allowlist)
+        elif isinstance(raw_allowlist, list):
+            parts = raw_allowlist
+        else:
+            return jsonify(error="allowed_emails must be a list or comma-separated string"), 400
+        allowed_emails = [e.strip().lower() for e in parts if e.strip()]
+
     game = Game(
         host_name=host_name,
         pattern=pattern,
         host_token=secrets.token_urlsafe(16),
         call_interval_seconds=interval,
         game_words=cleaned_words,
+        allowed_emails=allowed_emails,
     )
     db.session.add(game)
     db.session.commit()
@@ -219,6 +234,30 @@ def start_game(game_id: int):
         to=f"game:{game.id}",
     )
     return jsonify(status="active", game_id=game.id), 200
+
+
+@host_bp.get("/api/topics/history")
+def topic_history():
+    """Return all topics that have been generated, sorted by usage.
+
+    Useful for the host to see which topics have already been played so
+    they don't repeat a recent one. Response shape:
+    ``{"topics": [{topic_name, word_count, times_used, created_at}, ...]}``
+    """
+    topics = db.session.scalars(
+        db.select(Topic).order_by(Topic.times_used.desc(), Topic.created_at.desc())
+    ).all()
+    return jsonify(
+        topics=[
+            {
+                "topic_name": t.topic_name,
+                "word_count": len(t.generated_words) if t.generated_words else 0,
+                "times_used": t.times_used,
+                "created_at": t.created_at.strftime("%Y-%m-%d %H:%M"),
+            }
+            for t in topics
+        ]
+    ), 200
 
 
 @host_bp.get("/api/games/<int:game_id>/state")

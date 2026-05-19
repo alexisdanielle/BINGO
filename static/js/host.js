@@ -5,7 +5,7 @@
 const state = {
   // Draft details captured from the create form before a game exists.
   // We hold these aside while the host reviews the generated topic list.
-  draft: null, // {host_name, topic, pattern, call_interval_seconds}
+  draft: null, // {host_name, topic, pattern, call_interval_seconds, allowed_emails}
   topicWords: [], // [{word, description}, ...] -- editable preview
   gameId: null,
   hostToken: null,
@@ -31,11 +31,14 @@ $("create-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   hideError("create-error");
   const data = new FormData(e.target);
+  // Capture the allowlist textarea; send as-is (server parses comma/newline).
+  const allowedEmailsRaw = (data.get("allowed_emails") || "").trim();
   state.draft = {
     host_name: (data.get("host_name") || "").trim() || "Host",
     topic: (data.get("topic") || "").trim(),
     pattern: data.get("pattern") || "horizontal",
     call_interval_seconds: Number(data.get("call_interval_seconds") || 5),
+    allowed_emails: allowedEmailsRaw || null,
   };
   if (!state.draft.topic) {
     showError("create-error", "Topic is required.");
@@ -151,7 +154,12 @@ $("accept-button").addEventListener("click", async () => {
     return;
   }
 
-  const body = { ...state.draft, game_words: cleaned };
+  const body = {
+    ...state.draft,
+    game_words: cleaned,
+    // Only send allowed_emails when the host actually entered something.
+    allowed_emails: state.draft.allowed_emails || undefined,
+  };
   const res = await fetch("/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -173,6 +181,14 @@ $("accept-button").addEventListener("click", async () => {
 
   show("lobby");
   connectSocket();
+
+  $("copy-link-button").addEventListener("click", () => {
+    navigator.clipboard.writeText(link).then(() => {
+      const btn = $("copy-link-button");
+      btn.textContent = "Copied!";
+      setTimeout(() => (btn.textContent = "Copy link"), 2000);
+    });
+  });
 });
 
 // --- Step 3: start game -------------------------------------------------
@@ -250,19 +266,30 @@ function renderPlayers() {
 }
 
 function renderLeaderboard(targetId) {
-  const ol = $(targetId);
-  ol.innerHTML = "";
+  const container = $(targetId);
+  container.innerHTML = "";
   const labels = ["1st", "2nd", "3rd"];
   for (let i = 0; i < 3; i++) {
-    const li = document.createElement("li");
+    const div = document.createElement("div");
     const win = state.wins.find((w) => w.place === i + 1);
+    div.className = `leaderboard-entry place-${i + 1}`;
+    const place = document.createElement("span");
+    place.className = "place";
+    place.textContent = labels[i];
+    const name = document.createElement("span");
     if (win) {
-      li.textContent = `${labels[i]}: ${win.player_name} (${win.pattern_matched})`;
+      name.textContent = win.player_name;
+      const pat = document.createElement("span");
+      pat.className = "muted";
+      pat.textContent = ` (${win.pattern_matched})`;
+      name.appendChild(pat);
     } else {
-      li.className = "placeholder";
-      li.textContent = `${labels[i]}: —`;
+      name.textContent = "—";
+      div.style.opacity = "0.45";
     }
-    ol.appendChild(li);
+    div.appendChild(place);
+    div.appendChild(name);
+    container.appendChild(div);
   }
 }
 
@@ -274,6 +301,42 @@ function showError(id, msg) {
 function hideError(id) {
   $(id).hidden = true;
 }
+
+// --- Topic history -------------------------------------------------------
+$("history-toggle").addEventListener("click", async () => {
+  const panel = $("history-panel");
+  const btn = $("history-toggle");
+  if (!panel.hidden) {
+    panel.hidden = true;
+    btn.textContent = "Show";
+    return;
+  }
+  panel.hidden = false;
+  btn.textContent = "Hide";
+  const res = await fetch("/api/topics/history");
+  if (!res.ok) {
+    $("history-body").innerHTML =
+      '<tr><td colspan="4" class="error">Failed to load history.</td></tr>';
+    return;
+  }
+  const { topics } = await res.json();
+  if (!topics.length) {
+    $("history-body").innerHTML =
+      '<tr><td colspan="4" class="muted" style="padding:1rem 0.75rem;">No topics generated yet.</td></tr>';
+    return;
+  }
+  $("history-body").innerHTML = topics
+    .map(
+      (t) =>
+        `<tr>
+          <td>${t.topic_name}</td>
+          <td>${t.word_count}</td>
+          <td>${t.times_used}</td>
+          <td>${t.created_at}</td>
+        </tr>`,
+    )
+    .join("");
+});
 
 // --- Text-to-speech -----------------------------------------------------
 function speak(word, description) {

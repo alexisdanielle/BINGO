@@ -34,3 +34,13 @@ class Config:
     # Optional. Only the AI announcement layer (built last) reads this. The
     # game must work fine when it's unset.
     ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")
+
+    # --- Email / OTP authentication ----------------------------------------
+    # Gmail SMTP credentials. Create an App Password at:
+    # myaccount.google.com → Security → App Passwords
+    SMTP_USER: str | None = os.environ.get("SMTP_USER")
+    SMTP_PASSWORD: str | None = os.environ.get("SMTP_PASSWORD")
+    # OTP expires this many minutes after being sent.
+    OTP_EXPIRY_MINUTES: int = int(os.environ.get("OTP_EXPIRY_MINUTES", "10"))
+    # Only emails ending in this domain may join (case-insensitive check).
+    CGI_EMAIL_DOMAIN: str = os.environ.get("CGI_EMAIL_DOMAIN", "cgi.com")

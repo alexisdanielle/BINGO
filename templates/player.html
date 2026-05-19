@@ -15,14 +15,62 @@
 
 <section id="join-section">
   <h2>Join game <span id="header-game-id"></span></h2>
-  <form id="join-form">
-    <label
-      >Your name
-      <input name="player_name" required autocomplete="off" />
-    </label>
-    <button type="submit">Join</button>
-  </form>
-  <p id="join-error" class="error" hidden></p>
+
+  {# Step 1: enter CGI email to receive OTP #}
+  <div id="email-step">
+    <p class="info-box">Enter your email address to receive a one-time verification code.</p>
+    <form id="email-form">
+      <label>Email address
+        <input
+          name="player_email"
+          type="email"
+          required
+          autocomplete="email"
+          placeholder="you@example.com"
+        />
+      </label>
+      <button type="submit" id="send-otp-button">Send code</button>
+    </form>
+    <p id="email-status" class="muted" hidden></p>
+    <p id="email-error" class="error" hidden></p>
+  </div>
+
+  {# Step 2: enter the 6-digit code received by email #}
+  <div id="otp-step" hidden>
+    <p class="info-box">A 6-digit code has been sent to <strong id="otp-email-display"></strong>. Enter it below.</p>
+    <form id="otp-form">
+      <label>Verification code
+        <input
+          name="otp_code"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]{6}"
+          maxlength="6"
+          required
+          autocomplete="one-time-code"
+          placeholder="123456"
+          class="otp-input"
+        />
+      </label>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
+        <button type="submit" id="verify-otp-button">Verify</button>
+        <button type="button" id="resend-otp-button" class="secondary">Resend code</button>
+      </div>
+    </form>
+    <p id="otp-error" class="error" hidden></p>
+  </div>
+
+  {# Step 3: choose a display name and join #}
+  <div id="name-step" hidden>
+    <p class="info-box">Verified! Choose a display name for your bingo card.</p>
+    <form id="join-form">
+      <label>Display name
+        <input name="player_name" required autocomplete="off" placeholder="e.g. Alex" />
+      </label>
+      <button type="submit">Join game</button>
+    </form>
+    <p id="join-error" class="error" hidden></p>
+  </div>
 </section>
 
 <section id="game-section" hidden>
@@ -40,7 +88,7 @@
 <section id="end-section" hidden>
   <h2>Game ended</h2>
   <h3>Final leaderboard</h3>
-  <ol id="leaderboard"></ol>
+  <div id="leaderboard"></div>
 </section>
 
 {% endblock %} {% block scripts %}

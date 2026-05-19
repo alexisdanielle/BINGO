@@ -4,6 +4,7 @@ const state = {
   gameId: null,
   joinToken: null,
   playerName: null,
+  playerEmail: null, // set after OTP verification
   card: null,
   // Marks are client-only per D7 — they're a UX aid; the server
   // validates against the actual called words at /bingo time.
@@ -108,6 +109,12 @@ const sections = {
   end: $("end-section"),
 };
 
+const joinSteps = {
+  email: $("email-step"),
+  otp: $("otp-step"),
+  name: $("name-step"),
+};
+
 let socket = null;
 
 // --- Read game id from URL ---------------------------------------------
@@ -115,15 +122,77 @@ const params = new URLSearchParams(location.search);
 state.gameId = parseInt(params.get("game_id") || "0", 10);
 $("header-game-id").textContent = state.gameId ? `#${state.gameId}` : "";
 if (!state.gameId) {
-  showJoinError("Missing ?game_id= in URL. Ask the host for the link.");
+  showFieldError("email-error", "Missing ?game_id= in URL. Ask the host for the link.");
 }
 
-// --- Join ---------------------------------------------------------------
+// --- Step 1: request OTP ------------------------------------------------
+$("email-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideFieldError("email-error");
+  if (!state.gameId) return;
+  const data = new FormData(e.target);
+  const email = (data.get("player_email") || "").trim();
+  await sendOtp(email);
+});
+
+$("resend-otp-button").addEventListener("click", async () => {
+  if (state.playerEmail) await sendOtp(state.playerEmail);
+});
+
+async function sendOtp(email) {
+  const btn = $("send-otp-button");
+  btn.disabled = true;
+  hideFieldError("email-error");
+  const statusEl = $("email-status");
+  statusEl.textContent = "Sending…";
+  statusEl.hidden = false;
+
+  const res = await fetch(`/api/games/${state.gameId}/request-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  btn.disabled = false;
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    statusEl.hidden = true;
+    showFieldError("email-error", json.error || `Error ${res.status}`);
+    return;
+  }
+  state.playerEmail = email;
+  $("otp-email-display").textContent = email;
+  statusEl.hidden = true;
+  showJoinStep("otp");
+}
+
+// --- Step 2: verify OTP -------------------------------------------------
+$("otp-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideFieldError("otp-error");
+  const data = new FormData(e.target);
+  const otp = (data.get("otp_code") || "").trim();
+  const res = await fetch(`/api/games/${state.gameId}/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: state.playerEmail, otp }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    showFieldError("otp-error", json.error || `Error ${res.status}`);
+    return;
+  }
+  showJoinStep("name");
+});
+
+// --- Step 3: join with display name -------------------------------------
 $("join-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!state.gameId) return;
   const data = new FormData(e.target);
-  const body = { player_name: data.get("player_name") };
+  const body = {
+    player_name: data.get("player_name"),
+    email: state.playerEmail,
+  };
   const res = await fetch(`/api/games/${state.gameId}/join`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -131,7 +200,7 @@ $("join-form").addEventListener("submit", async (e) => {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    showJoinError(err.error || `Error ${res.status}`);
+    showFieldError("join-error", err.error || `Error ${res.status}`);
     return;
   }
   const json = await res.json();
@@ -147,10 +216,27 @@ $("join-form").addEventListener("submit", async (e) => {
   connectSocket();
 });
 
-function showJoinError(msg) {
-  const el = $("join-error");
+// --- Join step helpers ---------------------------------------------------
+function showJoinStep(name) {
+  for (const [key, el] of Object.entries(joinSteps)) {
+    el.hidden = key !== name;
+  }
+}
+
+function showFieldError(id, msg) {
+  const el = $(id);
+  if (!el) return;
   el.textContent = msg;
   el.hidden = false;
+}
+
+function hideFieldError(id) {
+  const el = $(id);
+  if (el) el.hidden = true;
+}
+
+function showJoinError(msg) {
+  showFieldError("join-error", msg);
 }
 
 // --- Card rendering -----------------------------------------------------
@@ -240,19 +326,30 @@ function connectSocket() {
 }
 
 function renderFinalLeaderboard(wins) {
-  const ol = $("leaderboard");
-  ol.innerHTML = "";
+  const container = $("leaderboard");
+  container.innerHTML = "";
   const labels = ["1st", "2nd", "3rd"];
   for (let i = 0; i < 3; i++) {
-    const li = document.createElement("li");
+    const div = document.createElement("div");
     const w = wins.find((w) => w.place === i + 1);
+    div.className = `leaderboard-entry place-${i + 1}`;
+    const place = document.createElement("span");
+    place.className = "place";
+    place.textContent = labels[i];
+    const name = document.createElement("span");
     if (w) {
-      li.textContent = `${labels[i]}: ${w.player_name} (${w.pattern_matched})`;
+      name.textContent = w.player_name;
+      const pat = document.createElement("span");
+      pat.className = "muted";
+      pat.textContent = ` (${w.pattern_matched})`;
+      name.appendChild(pat);
     } else {
-      li.className = "placeholder";
-      li.textContent = `${labels[i]}: —`;
+      name.textContent = "—";
+      div.style.opacity = "0.45";
     }
-    ol.appendChild(li);
+    div.appendChild(place);
+    div.appendChild(name);
+    container.appendChild(div);
   }
 }
 

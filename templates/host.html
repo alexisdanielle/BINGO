@@ -36,6 +36,14 @@ block content %}
         max="60"
       />
     </label>
+    <label
+      >Restrict to these emails <span class="muted">(optional — leave blank to allow anyone)</span>
+      <textarea
+        name="allowed_emails"
+        rows="3"
+        placeholder="alice@cgi.com&#10;bob@cgi.com&#10;carol@cgi.com"
+      ></textarea>
+    </label>
     <button type="submit" id="generate-button">Generate word list</button>
   </form>
   <p id="generate-status" class="muted" hidden></p>
@@ -64,9 +72,13 @@ block content %}
 <section id="lobby-section" hidden>
   <h2>Lobby — share this link</h2>
   <p><a id="join-link" href="" target="_blank" rel="noopener"></a></p>
+  <p class="info-box">Share the link above with your players. Start the game once everyone has joined.</p>
+  <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+    <button type="button" id="copy-link-button" class="secondary">Copy link</button>
+    <button id="start-button" type="button">Start game</button>
+  </div>
   <h3>Players joined (<span id="player-count">0</span>)</h3>
   <ul id="player-list"></ul>
-  <button id="start-button" type="button">Start game</button>
 </section>
 
 <section id="game-section" hidden>
@@ -77,11 +89,7 @@ block content %}
   </div>
   <p id="current-description" class="description" aria-live="polite"></p>
   <h3>Leaderboard</h3>
-  <ol id="leaderboard">
-    <li class="placeholder">1st: —</li>
-    <li class="placeholder">2nd: —</li>
-    <li class="placeholder">3rd: —</li>
-  </ol>
+  <div id="leaderboard"></div>
   <h3>Called words (<span id="call-count">0</span>)</h3>
   <ul id="call-history"></ul>
 </section>
@@ -90,7 +98,30 @@ block content %}
   <h2>Game ended</h2>
   <p id="end-reason"></p>
   <h3>Final leaderboard</h3>
-  <ol id="final-leaderboard"></ol>
+  <div id="final-leaderboard"></div>
+</section>
+
+<section id="history-section">
+  <h2>
+    Past topics
+    <button type="button" id="history-toggle" class="secondary" style="font-size:0.8rem;padding:0.3rem 0.7rem;margin-left:0.75rem;">Show</button>
+  </h2>
+  <div id="history-panel" hidden>
+    <p class="muted">Topics that have been generated before — avoid repeating recent ones.</p>
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Words</th>
+          <th>Times used</th>
+          <th>First created</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="4" class="muted" style="padding:1rem 0.75rem;">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
 </section>
 
 {% endblock %} {% block scripts %}
