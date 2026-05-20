@@ -38,9 +38,21 @@ FULL_HOUSE: list[Pattern] = [
 
 # Lookup keyed by the same string we store in ``games.pattern``. The
 # game engine resolves a pattern_type name to a list of patterns here.
+#
+# "Any" categories — win if ANY sub-pattern in the group is complete.
+# "Specific" patterns — the list contains exactly one sub-pattern so the
+# host can target one exact line (e.g. "Row 3" only, not any row).
 PATTERN_TYPES: dict[str, list[Pattern]] = {
+    # Any-line categories
     "horizontal": HORIZONTAL_LINE,
     "vertical": VERTICAL_LINE,
     "diagonal": DIAGONAL,
     "full_house": FULL_HOUSE,
+    # Specific rows (row_1 = top, row_5 = bottom)
+    **{f"row_{r + 1}": [HORIZONTAL_LINE[r]] for r in range(GRID_SIZE)},
+    # Specific columns (col_1 = left, col_5 = right)
+    **{f"col_{c + 1}": [VERTICAL_LINE[c]] for c in range(GRID_SIZE)},
+    # Individual diagonals
+    "diag_main": [DIAGONAL[0]],   # top-left → bottom-right
+    "diag_anti": [DIAGONAL[1]],   # top-right → bottom-left
 }

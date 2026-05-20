@@ -19,7 +19,7 @@ from flask import Flask
 
 from app import create_app
 from game import game_engine, topic_generator
-from models import Call, Game, Topic, db
+from models import Call, Game, PlayerAuth, Topic, db
 
 
 def _entries(n: int = 30) -> list[dict]:
@@ -179,8 +179,22 @@ def test_join_generates_card_from_topic_words(
     create = client.post("/api/games", json={"game_words": entries})
     game_id = create.get_json()["game_id"]
 
+    # Join now requires a verified PlayerAuth; create one directly in the DB.
+    email = "sam@test.com"
+    with app.app_context():
+        auth = PlayerAuth(
+            game_id=game_id,
+            email=email,
+            otp_code="000000",
+            otp_expires_at=db.session.get(Game, game_id).created_at,
+            verified=True,
+        )
+        db.session.add(auth)
+        db.session.commit()
+
     res = client.post(
-        f"/api/games/{game_id}/join", json={"player_name": "Sam"}
+        f"/api/games/{game_id}/join",
+        json={"player_name": "Sam", "email": email},
     )
     assert res.status_code == 201
     card = res.get_json()["card"]

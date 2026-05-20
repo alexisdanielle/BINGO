@@ -3,16 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}Virtual Bingo{% endblock %}</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
+    <title>{% block title %}CGI Virtual Bingo{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   </head>
   <body>
     <header>
-      <h1><a href="/">Virtual Bingo</a></h1>
+      {# Drop your logo file into static/img/ and set its name below.
+         If no logo is present the text fallback is shown instead. #}
+      {% set logo_path = 'img/cgi-logo-white.png' %}
+      <a href="/">
+        <img
+          class="header-logo"
+          src="{{ url_for('static', filename=logo_path) }}"
+          alt="CGI"
+          onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+        />
+        <span class="header-logo-placeholder" style="display:none">CGI</span>
+      </a>
+      <div class="header-divider"></div>
+      <p class="header-title">Virtual Bingo</p>
     </header>
+
     <main>{% block content %}{% endblock %}</main>
 
     {# Socket.IO 4.x client — speaks the same protocol as our

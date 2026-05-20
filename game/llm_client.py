@@ -6,11 +6,9 @@ which ``*_API_KEY`` env var is set, in priority order:
 
     1. ``GEMINI_API_KEY``    -> google-generativeai (gemini-2.5-flash)
     2. ``ANTHROPIC_API_KEY`` -> NotImplementedError (planned)
-    3. ``OPENAI_API_KEY``    -> NotImplementedError (planned)
+    3. ``OPENAI_API_KEY``    -> openai SDK (gpt-4o-mini)
 
-Only Gemini is wired up in iteration 2; Anthropic and OpenAI are stubs
-we'll fill in later. We chose Gemini first because it has a free tier
-suitable for the co-op demo.
+Gemini and OpenAI are both fully wired up. Anthropic is a stub for later.
 
 Why ``python-dotenv``: loading ``.env`` at import keeps the rest of the
 code free of bootstrap calls — anyone who imports this module
@@ -42,6 +40,8 @@ except ImportError:
 
 # Pinned per the iteration 2 spec. Bump deliberately, not silently.
 GEMINI_MODEL = "gemini-2.5-flash"
+# gpt-4o-mini: fast, cheap, and more than capable for JSON word-list generation.
+OPENAI_MODEL = "gpt-4o-mini"
 
 
 # Matches ```json ... ``` or plain ``` ... ``` wrappers that some models
@@ -99,9 +99,26 @@ def _call_anthropic(prompt: str) -> str:
 
 
 def _call_openai(prompt: str) -> str:
-    raise NotImplementedError(
-        "OpenAI provider is not wired up yet. Use GEMINI_API_KEY for now."
+    """Send ``prompt`` to OpenAI and return the response text.
+
+    Uses the ``openai`` SDK with lazy import for the same reason as Gemini:
+    keeps import-time cost low and lets tests swap the module out.
+    gpt-4o-mini is chosen because it's fast, inexpensive, and reliable at
+    returning structured JSON — important for the topic generator.
+    """
+    import httpx
+    from openai import OpenAI
+
+    # On corporate networks with SSL inspection, Python's bundled certs
+    # don't include the company's root CA. verify=False bypasses the check
+    # so the demo works on the CGI network. Remove this for production.
+    http_client = httpx.Client(verify=False)
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], http_client=http_client)
+    response = client.chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[{"role": "user", "content": prompt}],
     )
+    return response.choices[0].message.content or ""
 
 
 _PROVIDERS: dict[str, Callable[[str], str]] = {

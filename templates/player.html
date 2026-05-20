@@ -14,34 +14,161 @@
 </button>
 
 <section id="join-section">
-  <h2>Join game <span id="header-game-id"></span></h2>
-  <form id="join-form">
-    <label
-      >Your name
-      <input name="player_name" required autocomplete="off" />
-    </label>
-    <button type="submit">Join</button>
-  </form>
-  <p id="join-error" class="error" hidden></p>
+  <h2>🎯 Join game <span id="header-game-id"></span></h2>
+
+  {# Visual progress through the 3-step auth flow; JS updates active/done classes #}
+  <div class="step-indicator" id="step-indicator">
+    <div class="step-item active" id="step-email">
+      <div class="step-circle"><span>1</span></div>
+      <span class="step-label">Email</span>
+    </div>
+    <div class="step-item" id="step-otp">
+      <div class="step-circle"><span>2</span></div>
+      <span class="step-label">Verify</span>
+    </div>
+    <div class="step-item" id="step-name">
+      <div class="step-circle"><span>3</span></div>
+      <span class="step-label">Join</span>
+    </div>
+  </div>
+
+  {# Step 1: enter CGI email to receive OTP #}
+  <div id="email-step">
+    <p class="info-box">Enter your email address to receive a one-time verification code.</p>
+    <form id="email-form">
+      <label>Email address
+        <input
+          name="player_email"
+          type="email"
+          required
+          autocomplete="email"
+          placeholder="you@example.com"
+        />
+      </label>
+      <button type="submit" id="send-otp-button">Send code</button>
+    </form>
+    <p id="email-status" class="muted" hidden></p>
+    <p id="email-error" class="error" hidden></p>
+  </div>
+
+  {# Step 2: enter the 6-digit code received by email #}
+  <div id="otp-step" hidden>
+    <p class="info-box">A 6-digit code has been sent to <strong id="otp-email-display"></strong>. Enter it below.</p>
+    <form id="otp-form">
+      <label>Verification code
+        <input
+          name="otp_code"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]{6}"
+          maxlength="6"
+          required
+          autocomplete="one-time-code"
+          placeholder="123456"
+          class="otp-input"
+        />
+      </label>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
+        <button type="submit" id="verify-otp-button">Verify</button>
+        <button type="button" id="resend-otp-button" class="secondary">Resend code</button>
+      </div>
+    </form>
+    <p id="otp-error" class="error" hidden></p>
+  </div>
+
+  {# Step 3: choose a display name and join #}
+  <div id="name-step" hidden>
+    <p class="info-box">Verified! Choose a display name for your bingo card.</p>
+    <form id="join-form">
+      <label>Display name
+        <input name="player_name" required autocomplete="off" placeholder="e.g. Alex" />
+      </label>
+      <button type="submit">Join game</button>
+    </form>
+    <p id="join-error" class="error" hidden></p>
+  </div>
 </section>
 
 <section id="game-section" hidden>
-  <p>Playing as: <strong id="who-am-i"></strong></p>
-  <div class="current-word">
-    <span class="label">Now calling:</span>
-    <span id="current-word">—</span>
+  {# Full-screen overlay — JS adds .visible on game_paused / removes it on game_resumed. #}
+  <div id="pause-overlay">
+    <div class="pause-card">
+      <div class="pause-icon">⏸</div>
+      <h2>Game Paused</h2>
+      <p>The host has paused the game.<br>Hang tight — it'll resume shortly.</p>
+    </div>
   </div>
-  <p id="current-description" class="description" aria-live="polite"></p>
+  <p>Playing as: <strong id="who-am-i"></strong></p>
+  <div class="current-word-card" aria-live="polite">
+    <div class="cw-label">Now calling</div>
+    <span id="current-word">—</span>
+    <p id="current-description"></p>
+  </div>
+  {# BINGO column letters — purely decorative; top-aligns with the card cells below #}
+  <div class="bingo-column-headers" aria-hidden="true">
+    <div class="bingo-col-header">B</div>
+    <div class="bingo-col-header">I</div>
+    <div class="bingo-col-header">N</div>
+    <div class="bingo-col-header">G</div>
+    <div class="bingo-col-header">O</div>
+  </div>
   <table id="bingo-card"></table>
-  <button id="bingo-button" type="button">BINGO!</button>
+  <button id="bingo-button" type="button" disabled>BINGO!</button>
   <p id="claim-result" aria-live="polite"></p>
 </section>
 
 <section id="end-section" hidden>
   <h2>Game ended</h2>
   <h3>Final leaderboard</h3>
-  <ol id="leaderboard"></ol>
+  <div id="leaderboard"></div>
 </section>
+
+<button class="help-btn" id="help-btn" aria-label="How to play">i</button>
+
+<div class="help-overlay" id="help-overlay" role="dialog" aria-modal="true" aria-label="How to play">
+  <div class="help-modal">
+    <button class="help-close" id="help-close" aria-label="Close">x</button>
+    <p class="help-modal-title">How to play</p>
+    <ol class="help-steps">
+      <li>
+        <span class="help-step-num">1</span>
+        <div><strong>Verify your email</strong><span>Enter your email address to receive a 6-digit code, then enter it to confirm it's you.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">2</span>
+        <div><strong>Pick a display name</strong><span>Choose the name that will appear on the leaderboard if you win.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">3</span>
+        <div><strong>Wait in the lobby</strong><span>The host will start the game. Your unique bingo card appears automatically.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">4</span>
+        <div><strong>Mark called words</strong><span>Words are announced one by one. Tap a cell on your card to mark it — it only counts once the host has officially called that word.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">5</span>
+        <div><strong>Click BINGO! when ready</strong><span>Once you complete the required pattern, the BINGO! button lights up. Click it — the server verifies instantly.</span></div>
+      </li>
+      <li>
+        <span class="help-step-num">6</span>
+        <div><strong>Top 3 winners get prizes</strong><span>The game continues until all winner spots are filled. Good luck!</span></div>
+      </li>
+    </ol>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var overlay    = document.getElementById("help-overlay");
+    var openModal  = function() { overlay.classList.add("open"); };
+    var closeModal = function() { overlay.classList.remove("open"); };
+    document.getElementById("help-btn").addEventListener("click", openModal);
+    document.getElementById("help-close").addEventListener("click", closeModal);
+    overlay.addEventListener("click", function(e) { if (e.target === overlay) closeModal(); });
+    document.addEventListener("keydown", function(e) { if (e.key === "Escape") closeModal(); });
+  })();
+</script>
 
 {% endblock %} {% block scripts %}
 <script src="{{ url_for('static', filename='js/player.js') }}"></script>

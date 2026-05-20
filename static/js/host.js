@@ -5,13 +5,15 @@
 const state = {
   // Draft details captured from the create form before a game exists.
   // We hold these aside while the host reviews the generated topic list.
-  draft: null, // {host_name, topic, pattern, call_interval_seconds}
+  draft: null, // {host_name, topic, pattern, call_interval_seconds, max_winners, allowed_emails}
   topicWords: [], // [{word, description}, ...] -- editable preview
   gameId: null,
   hostToken: null,
   players: [],
   calledWords: [],
   wins: [],
+  maxWinners: 3,
+  topicHistoryCache: null, // fetched once per page load
 };
 
 const $ = (id) => document.getElementById(id);
@@ -26,16 +28,31 @@ const sections = {
 
 let socket = null;
 
+// --- Copy link (registered once; reads link from anchor text) -----------
+$("copy-link-button").addEventListener("click", () => {
+  const link = $("join-link").href;
+  if (!link) return;
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = $("copy-link-button");
+    btn.textContent = "Copied!";
+    setTimeout(() => (btn.textContent = "Copy link"), 2000);
+  });
+});
+
 // --- Step 1: capture form, generate topic preview -----------------------
 $("create-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   hideError("create-error");
   const data = new FormData(e.target);
+  // Capture the allowlist textarea; send as-is (server parses comma/newline).
+  const allowedEmailsRaw = (data.get("allowed_emails") || "").trim();
   state.draft = {
     host_name: (data.get("host_name") || "").trim() || "Host",
     topic: (data.get("topic") || "").trim(),
     pattern: data.get("pattern") || "horizontal",
     call_interval_seconds: Number(data.get("call_interval_seconds") || 5),
+    max_winners: Number(data.get("max_winners") || 3),
+    allowed_emails: allowedEmailsRaw || null,
   };
   if (!state.draft.topic) {
     showError("create-error", "Topic is required.");
@@ -151,7 +168,12 @@ $("accept-button").addEventListener("click", async () => {
     return;
   }
 
-  const body = { ...state.draft, game_words: cleaned };
+  const body = {
+    ...state.draft,
+    game_words: cleaned,
+    // Only send allowed_emails when the host actually entered something.
+    allowed_emails: state.draft.allowed_emails || undefined,
+  };
   const res = await fetch("/api/games", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -165,6 +187,7 @@ $("accept-button").addEventListener("click", async () => {
   const json = await res.json();
   state.gameId = json.game_id;
   state.hostToken = json.host_token;
+  state.maxWinners = json.max_winners || 3;
 
   const link = `${location.origin}/play?game_id=${json.game_id}`;
   const a = $("join-link");
@@ -189,6 +212,29 @@ $("start-button").addEventListener("click", async () => {
   // (host + players) move forward together.
 });
 
+// --- Pause / Resume -----------------------------------------------------
+$("pause-button").addEventListener("click", async () => {
+  const res = await fetch(`/api/games/${state.gameId}/pause`, {
+    method: "POST",
+    headers: { "X-Host-Token": state.hostToken },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert("Failed to pause: " + (err.error || res.status));
+  }
+});
+
+$("resume-button").addEventListener("click", async () => {
+  const res = await fetch(`/api/games/${state.gameId}/resume`, {
+    method: "POST",
+    headers: { "X-Host-Token": state.hostToken },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert("Failed to resume: " + (err.error || res.status));
+  }
+});
+
 // --- Sockets ------------------------------------------------------------
 function connectSocket() {
   socket = io();
@@ -201,34 +247,65 @@ function connectSocket() {
   });
   socket.on("game_started", () => {
     show("game");
+    document.body.classList.add("game-bg");
   });
   socket.on("word_called", ({ word, description, call_index }) => {
     state.calledWords.push(word);
-    $("current-word").textContent = word;
+    // Animate the word display
+    const wordEl = $("current-word");
+    wordEl.classList.remove("pop");
+    void wordEl.offsetWidth;
+    wordEl.textContent = word;
+    fitCurrentWord(); // scale font so the word never wraps
+    wordEl.classList.add("pop");
     $("current-description").textContent = description || "";
     $("call-count").textContent = state.calledWords.length;
+    // Word chips — newest first, styled in call-history CSS
     const li = document.createElement("li");
-    // Show the description inline with each historical call so the host
-    // has a teleprompter-style script during the demo.
-    li.textContent = description
-      ? `${call_index}. ${word} — ${description}`
-      : `${call_index}. ${word}`;
-    // Newest first so the host sees the latest at the top.
+    li.title = description || "";  // tooltip shows description on hover
+    li.textContent = word;
     $("call-history").prepend(li);
-    speak(word, description);
+    speak(word);
   });
   socket.on("win_declared", ({ place, player_name, pattern_matched }) => {
     state.wins.push({ place, player_name, pattern_matched });
     renderLeaderboard("leaderboard");
   });
+  socket.on("game_paused", () => {
+    $("pause-button").hidden = true;
+    $("resume-button").hidden = false;
+    $("paused-badge").hidden = false;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  });
+  socket.on("game_resumed", () => {
+    $("pause-button").hidden = false;
+    $("resume-button").hidden = true;
+    $("paused-badge").hidden = true;
+  });
   socket.on("game_ended", ({ reason }) => {
     show("end");
+    const n = state.maxWinners;
     $("end-reason").textContent =
-      reason === "third_winner"
-        ? "We have our top 3 winners!"
+      reason === "last_winner"
+        ? `We have our top ${n} winner${n === 1 ? "" : "s"}!`
         : `Game ended (${reason}).`;
     renderLeaderboard("final-leaderboard");
   });
+}
+
+// --- Word display fit ---------------------------------------------------
+// Shrinks the font so the called word always fits on one line.
+function fitCurrentWord() {
+  const el = $("current-word");
+  if (!el) return;
+  el.style.fontSize = "";
+  const card = el.closest(".current-word-card");
+  const maxW = (card ? card.clientWidth : 300) - 64;
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  while (el.scrollWidth > maxW && size > 14) {
+    size -= 1;
+    el.style.fontSize = size + "px";
+  }
 }
 
 // --- Rendering ----------------------------------------------------------
@@ -236,6 +313,8 @@ function show(name) {
   for (const [key, el] of Object.entries(sections)) {
     el.hidden = key !== name;
   }
+  if (name === "game" || name === "end") document.body.classList.add("game-bg");
+  else document.body.classList.remove("game-bg");
 }
 
 function renderPlayers() {
@@ -249,20 +328,40 @@ function renderPlayers() {
   }
 }
 
+function ordinal(n) {
+  if (n >= 11 && n <= 13) return n + "th";
+  const rem = n % 10;
+  if (rem === 1) return n + "st";
+  if (rem === 2) return n + "nd";
+  if (rem === 3) return n + "rd";
+  return n + "th";
+}
+
 function renderLeaderboard(targetId) {
-  const ol = $(targetId);
-  ol.innerHTML = "";
-  const labels = ["1st", "2nd", "3rd"];
-  for (let i = 0; i < 3; i++) {
-    const li = document.createElement("li");
+  const container = $(targetId);
+  container.innerHTML = "";
+  const n = state.maxWinners;
+  for (let i = 0; i < n; i++) {
+    const div = document.createElement("div");
     const win = state.wins.find((w) => w.place === i + 1);
+    div.className = `leaderboard-entry place-${Math.min(i + 1, 3)}`;
+    const place = document.createElement("span");
+    place.className = "place";
+    place.textContent = ordinal(i + 1);
+    const name = document.createElement("span");
     if (win) {
-      li.textContent = `${labels[i]}: ${win.player_name} (${win.pattern_matched})`;
+      name.textContent = win.player_name;
+      const pat = document.createElement("span");
+      pat.className = "muted";
+      pat.textContent = ` (${win.pattern_matched})`;
+      name.appendChild(pat);
     } else {
-      li.className = "placeholder";
-      li.textContent = `${labels[i]}: —`;
+      name.textContent = "—";
+      div.style.opacity = "0.45";
     }
-    ol.appendChild(li);
+    div.appendChild(place);
+    div.appendChild(name);
+    container.appendChild(div);
   }
 }
 
@@ -275,18 +374,62 @@ function hideError(id) {
   $(id).hidden = true;
 }
 
+// --- Topic history -------------------------------------------------------
+$("history-toggle").addEventListener("click", async () => {
+  const panel = $("history-panel");
+  const btn = $("history-toggle");
+  if (!panel.hidden) {
+    panel.hidden = true;
+    btn.textContent = "Show";
+    return;
+  }
+  panel.hidden = false;
+  btn.textContent = "Hide";
+
+  // Use cached data if already fetched to avoid redundant requests.
+  if (state.topicHistoryCache !== null) {
+    renderTopicHistory(state.topicHistoryCache);
+    return;
+  }
+
+  const res = await fetch("/api/topics/history");
+  if (!res.ok) {
+    $("history-body").innerHTML =
+      '<tr><td colspan="4" class="error">Failed to load history.</td></tr>';
+    return;
+  }
+  const { topics } = await res.json();
+  state.topicHistoryCache = topics;
+  renderTopicHistory(topics);
+});
+
+function renderTopicHistory(topics) {
+  const tbody = $("history-body");
+  if (!topics.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="4" class="muted" style="padding:1rem 0.75rem;">No topics generated yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = "";
+  for (const t of topics) {
+    const tr = document.createElement("tr");
+    // Build cells with textContent to avoid XSS from user-supplied topic names.
+    const cells = [t.topic_name, t.word_count, t.times_used, t.created_at];
+    for (const val of cells) {
+      const td = document.createElement("td");
+      td.textContent = val;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
 // --- Text-to-speech -----------------------------------------------------
-function speak(word, description) {
+function speak(word) {
   if (!("speechSynthesis" in window)) return;
-  // Cancel any in-flight utterance so words don't pile up if the host
-  // picked a short call interval (the new word truncates the old one).
+  // Cancel any in-flight utterance so words don't pile up at short intervals.
   speechSynthesis.cancel();
-  // Speak "<word>. <description>" so the audience hears both the term
-  // and a short factual blurb. The period gives the engine a natural
-  // pause between the two. If a description is missing (legacy games
-  // without a topic), fall back to just the word.
-  const text = description ? `${word}. ${description}` : word;
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.rate = 0.9; // slightly slower than default for clarity
+  const utt = new SpeechSynthesisUtterance(word);
+  utt.rate = 0.9;
   speechSynthesis.speak(utt);
 }

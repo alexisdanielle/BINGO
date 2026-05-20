@@ -20,10 +20,16 @@ log = logging.getLogger(__name__)
 # type. Stored in ``wins.pattern_matched`` so the leaderboard / audit
 # trail records *which* line was completed (e.g. "row_2" = third row).
 _PATTERN_LABELS: dict[str, list[str]] = {
-    "horizontal": [f"row_{r}" for r in range(GRID_SIZE)],
-    "vertical": [f"col_{c}" for c in range(GRID_SIZE)],
-    "diagonal": ["diag_main", "diag_anti"],
-    "full_house": ["full_house"],
+    # "Any" categories — each sub-pattern gets its own label.
+    "horizontal": [f"Row {r + 1}" for r in range(GRID_SIZE)],
+    "vertical": [f"Column {c + 1}" for c in range(GRID_SIZE)],
+    "diagonal": ["Main diagonal", "Anti-diagonal"],
+    "full_house": ["Full house"],
+    # Specific single-line patterns — one label each.
+    **{f"row_{r + 1}": [f"Row {r + 1}"] for r in range(GRID_SIZE)},
+    **{f"col_{c + 1}": [f"Column {c + 1}"] for c in range(GRID_SIZE)},
+    "diag_main": ["Main diagonal"],
+    "diag_anti": ["Anti-diagonal"],
 }
 
 
@@ -107,10 +113,16 @@ def run_call_loop(app: Flask, game_id: int) -> None:
             random.shuffle(remaining)
 
             while True:
-                # ``Session.commit`` expires loaded objects, so attribute
-                # access on ``game`` after the previous iteration's commit
-                # re-issues a SELECT — picking up status changes made by
-                # other requests (e.g. a 3rd-winner /bingo).
+                # After each commit, SQLAlchemy expires the game object so
+                # the next attribute access re-issues a SELECT — picking up
+                # status changes from other requests (win claims, pause).
+                if game.status == "paused":
+                    # Poll every second while paused; explicit refresh needed
+                    # because there's no commit to expire the object.
+                    socketio.sleep(1)
+                    db.session.refresh(game)
+                    continue
+
                 if game.status != "active":
                     return
 
@@ -153,9 +165,17 @@ def run_call_loop(app: Flask, game_id: int) -> None:
                     },
                     to=f"game:{game.id}",
                 )
-                # ``socketio.sleep`` is the right primitive across all
-                # async modes (under threading it's just time.sleep).
-                socketio.sleep(game.call_interval_seconds)
+                # Sleep in 0.5-second steps so a host pause takes effect
+                # within ~0.5 s instead of waiting the full interval.
+                elapsed = 0.0
+                while elapsed < game.call_interval_seconds:
+                    socketio.sleep(0.5)
+                    db.session.refresh(game)
+                    if game.status == "paused":
+                        break  # exit sleep; outer loop polls until resume
+                    if game.status != "active":
+                        return  # game finished or reset while sleeping
+                    elapsed += 0.5
         except Exception:
             # Background tasks swallow exceptions silently otherwise —
             # log so we can debug a misbehaving loop.

@@ -11,6 +11,8 @@ Broadcast events emitted from elsewhere (rooms keyed ``game:<id>``):
     word_called    — runner called a new word
     win_declared   — player's bingo claim was validated
     game_ended     — third winner, or pool exhausted
+    game_paused    — host paused the calling loop
+    game_resumed   — host resumed the calling loop
 """
 from __future__ import annotations
 

@@ -20,6 +20,9 @@ instance/
 # Claude Code per-machine settings (permissions, local prefs)
 .claude/
 
+# Brand asset source files (large EPS, wallpapers — not for git)
+brand-assets/
+
 # OS
 .DS_Store
 Thumbs.db

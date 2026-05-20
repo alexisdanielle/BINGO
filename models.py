@@ -15,6 +15,11 @@ Iteration 2 (topic generator) additions:
       cached Topic if the host edited rows for this particular game)
     - ``calls.description`` records the description shown alongside the
       word for that call, so the audit trail is self-contained
+
+Project-enhancement additions:
+    - ``PlayerAuth`` table for per-game email OTP authentication
+    - ``games.allowed_emails`` optional per-game allowlist
+    - ``cards.player_email`` records the verified email of the card owner
 """
 from __future__ import annotations
 
@@ -58,16 +63,21 @@ class Game(db.Model):
     host_token: Mapped[str] = mapped_column(nullable=False, unique=True)
     # Per-game cadence (D4). 5s default; host can override at creation.
     call_interval_seconds: Mapped[int] = mapped_column(nullable=False, default=5)
+    # How many winners before the game ends (1–5). Defaults to 3 (1st/2nd/3rd).
+    max_winners: Mapped[int] = mapped_column(nullable=False, default=3)
     # Finalized list of {"word": str, "description": str} dicts the host
     # accepted at game creation. Nullable for back-compat with games
     # created before iteration 2; new games always populate it.
     game_words: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Optional per-game allowlist: list of lowercase email strings. When set,
+    # only these emails may request an OTP; when null, any @domain email may join.
+    allowed_emails: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # cascade="all, delete-orphan" so deleting a Game also wipes its rows in
-    # cards/calls/wins — keeps demo cleanups simple, no orphaned data.
+    # cards/calls/wins/player_auths — keeps demo cleanups simple, no orphaned data.
     cards: Mapped[list["Card"]] = relationship(
         back_populates="game", cascade="all, delete-orphan"
     )
@@ -75,6 +85,9 @@ class Game(db.Model):
         back_populates="game", cascade="all, delete-orphan"
     )
     wins: Mapped[list["Win"]] = relationship(
+        back_populates="game", cascade="all, delete-orphan"
+    )
+    player_auths: Mapped[list["PlayerAuth"]] = relationship(
         back_populates="game", cascade="all, delete-orphan"
     )
 
@@ -99,6 +112,9 @@ class Card(db.Model):
     card_data: Mapped[list] = mapped_column(JSON, nullable=False)
     # Token sent in the player's join URL. Used to authenticate Bingo claims.
     join_token: Mapped[str] = mapped_column(nullable=False, unique=True)
+    # The verified email address of the player (set after OTP auth). Nullable
+    # so legacy cards (pre-auth) don't break on upgrade.
+    player_email: Mapped[str | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
 
     game: Mapped[Game] = relationship(back_populates="cards")
@@ -151,6 +167,40 @@ class Win(db.Model):
     card: Mapped[Card] = relationship(back_populates="wins")
 
 
+class PlayerAuth(db.Model):
+    """OTP authentication record for a player joining a specific game.
+
+    Flow: player requests OTP → this row is created/updated → player submits
+    OTP → ``verified`` flips to True → player can call /join.
+    One record per (game, email) — a player who re-requests an OTP overwrites
+    the previous code rather than creating a new row.
+    """
+
+    __tablename__ = "player_auths"
+    __table_args__ = (
+        UniqueConstraint("game_id", "email", name="uq_auth_game_email"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    game_id: Mapped[int] = mapped_column(
+        ForeignKey("games.id"), nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(nullable=False)
+    # 6-digit code stored as a string to preserve leading zeros.
+    otp_code: Mapped[str] = mapped_column(nullable=False)
+    otp_expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    # Timestamp of the last OTP request — used to enforce a 60-second
+    # cooldown so a single email can't be spam-requested.
+    otp_requested_at: Mapped[datetime] = mapped_column(
+        default=_utcnow, nullable=False
+    )
+    # Flips to True once the player submits the correct OTP.
+    verified: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
+
+    game: Mapped["Game"] = relationship(back_populates="player_auths")
+
+
 class Topic(db.Model):
     """Cached LLM-generated word list for a topic name.
 
@@ -175,6 +225,52 @@ class Topic(db.Model):
     times_used: Mapped[int] = mapped_column(nullable=False, default=0)
 
 
+def _apply_migrations(app: Flask) -> None:
+    """Add columns introduced after the initial schema without losing data.
+
+    SQLite's ALTER TABLE only supports ADD COLUMN, so each new field gets
+    a safe idempotent check via PRAGMA table_info before being added.
+    New columns must be nullable or have a DEFAULT so existing rows are valid.
+    """
+    with app.app_context():
+        engine = db.engine
+        with engine.connect() as conn:
+            # ── games table ──────────────────────────────────────────────
+            result = conn.execute(db.text("PRAGMA table_info(games)"))
+            games_cols = {row[1] for row in result}
+
+            pending_games = []
+            if "max_winners" not in games_cols:
+                pending_games.append(
+                    "ALTER TABLE games ADD COLUMN max_winners INTEGER NOT NULL DEFAULT 3"
+                )
+            if "allowed_emails" not in games_cols:
+                # JSON column — NULL means no allowlist (anyone can join).
+                pending_games.append(
+                    "ALTER TABLE games ADD COLUMN allowed_emails TEXT"
+                )
+
+            for sql in pending_games:
+                conn.execute(db.text(sql))
+            if pending_games:
+                conn.commit()
+
+            # ── cards table ──────────────────────────────────────────────
+            result = conn.execute(db.text("PRAGMA table_info(cards)"))
+            cards_cols = {row[1] for row in result}
+
+            pending_cards = []
+            if "player_email" not in cards_cols:
+                pending_cards.append(
+                    "ALTER TABLE cards ADD COLUMN player_email TEXT"
+                )
+
+            for sql in pending_cards:
+                conn.execute(db.text(sql))
+            if pending_cards:
+                conn.commit()
+
+
 def init_db(app: Flask) -> None:
     """Create any missing tables for the app's bound database.
 
@@ -184,3 +280,4 @@ def init_db(app: Flask) -> None:
     """
     with app.app_context():
         db.create_all()
+    _apply_migrations(app)

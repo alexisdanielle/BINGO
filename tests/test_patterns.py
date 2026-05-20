@@ -41,4 +41,13 @@ def test_full_house_covers_all_25_cells() -> None:
 
 
 def test_pattern_types_lookup_has_all_four() -> None:
-    assert set(PATTERN_TYPES) == {"horizontal", "vertical", "diagonal", "full_house"}
+    # Generic "any" types are always present.
+    for key in ("horizontal", "vertical", "diagonal", "full_house"):
+        assert key in PATTERN_TYPES, f"Missing generic pattern: {key}"
+    # Specific row/col/diagonal patterns are also registered.
+    for r in range(1, GRID_SIZE + 1):
+        assert f"row_{r}" in PATTERN_TYPES
+    for c in range(1, GRID_SIZE + 1):
+        assert f"col_{c}" in PATTERN_TYPES
+    for key in ("diag_main", "diag_anti"):
+        assert key in PATTERN_TYPES
