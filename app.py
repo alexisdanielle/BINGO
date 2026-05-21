@@ -31,10 +31,16 @@ def create_app(test_config: dict | None = None) -> Flask:
     # required, just real Python threads for the per-game call loops.
     db.init_app(app)
     init_db(app)
-    # async_mode="gevent" is required when running under gunicorn with
-    # gevent workers (production). gevent replaces Python threads with
-    # lightweight green threads so WebSocket upgrades work correctly.
-    socketio.init_app(app, cors_allowed_origins="*", async_mode="gevent")
+    # async_mode="gevent" with allow_upgrades=False keeps all clients on
+    # HTTP long-polling. This avoids WebSocket upgrade errors on Render
+    # without any loss of functionality — polling is reliable and the
+    # latency difference is invisible at 5-second call intervals.
+    socketio.init_app(
+        app,
+        cors_allowed_origins="*",
+        async_mode="gevent",
+        allow_upgrades=False,
+    )
 
     # Register HTTP route blueprints. Imported here (not at module top)
     # to avoid circular imports — the route modules reference ``socketio``
