@@ -195,6 +195,7 @@ $("accept-button").addEventListener("click", async () => {
   a.textContent = link;
 
   show("lobby");
+  renderLobbySettings();
   connectSocket();
 });
 
@@ -313,6 +314,9 @@ function show(name) {
   for (const [key, el] of Object.entries(sections)) {
     el.hidden = key !== name;
   }
+  // History section is not in `sections` so it must be managed separately.
+  const historySec = $("history-section");
+  if (historySec) historySec.hidden = (name === "game" || name === "end");
   if (name === "game" || name === "end") document.body.classList.add("game-bg");
   else document.body.classList.remove("game-bg");
 }
@@ -372,6 +376,25 @@ function showError(id, msg) {
 }
 function hideError(id) {
   $(id).hidden = true;
+}
+
+function renderLobbySettings() {
+  const bar = $("lobby-settings-bar");
+  if (!bar || !state.draft) return;
+  const patternLabels = {
+    horizontal: "Any row", vertical: "Any column",
+    diagonal: "Any diagonal", full_house: "Full house",
+    row_1: "Row 1", row_2: "Row 2", row_3: "Row 3", row_4: "Row 4", row_5: "Row 5",
+    col_1: "Col 1", col_2: "Col 2", col_3: "Col 3", col_4: "Col 4", col_5: "Col 5",
+    diag_main: "Main diagonal ↘", diag_anti: "Anti-diagonal ↙",
+  };
+  const pat = patternLabels[state.draft.pattern] || state.draft.pattern;
+  const w = state.draft.max_winners;
+  // Values are numbers/fixed labels — safe to write as innerHTML
+  bar.innerHTML =
+    `<span class="settings-chip">🎯 ${pat}</span>` +
+    `<span class="settings-chip">⏱ ${state.draft.call_interval_seconds}s per word</span>` +
+    `<span class="settings-chip">🏆 ${w} winner${w === 1 ? "" : "s"}</span>`;
 }
 
 // --- Topic history -------------------------------------------------------

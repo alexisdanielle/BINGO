@@ -1,15 +1,20 @@
-{% extends "base.html" %} {% block title %}Host — Virtual Bingo{% endblock %} {%
-block content %}
+{% extends "base.html" %} {% block title %}Host — Virtual Bingo{% endblock %}
+{% block content %}
 
 <section id="create-section">
-  <h2>🎮 Create a game</h2>
+  {# Hero — gives the form visual context before any content is generated #}
+  <div class="create-hero">
+    <div class="bingo-title-letters" aria-hidden="true">
+      <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
+    </div>
+    <p class="create-hero-sub">Set up a new game for your team</p>
+  </div>
+
   <form id="create-form">
-    <label
-      >Host name
+    <label>Host name
       <input name="host_name" required autocomplete="off" />
     </label>
-    <label
-      >Topic
+    <label>Topic
       <input
         name="topic"
         required
@@ -17,8 +22,7 @@ block content %}
         placeholder="e.g. CGI history, Canadian geography, Python basics"
       />
     </label>
-    <label
-      >Win condition
+    <label>Win condition
       <select name="pattern">
         <optgroup label="Any line (first player to complete any)">
           <option value="horizontal">Any horizontal line (any row)</option>
@@ -46,28 +50,13 @@ block content %}
         </optgroup>
       </select>
     </label>
-    <label
-      >Call interval (seconds)
-      <input
-        type="number"
-        name="call_interval_seconds"
-        value="5"
-        min="1"
-        max="60"
-      />
+    <label>Call interval (seconds)
+      <input type="number" name="call_interval_seconds" value="5" min="1" max="60" />
     </label>
-    <label
-      >Number of winners
-      <input
-        type="number"
-        name="max_winners"
-        value="3"
-        min="1"
-        max="5"
-      />
+    <label>Number of winners
+      <input type="number" name="max_winners" value="3" min="1" max="5" />
     </label>
-    <label
-      >Restrict to these emails <span class="muted">(optional — leave blank to allow anyone)</span>
+    <label>Restrict to these emails <span class="muted">(optional — leave blank to allow anyone)</span>
       <textarea
         name="allowed_emails"
         rows="3"
@@ -92,16 +81,20 @@ block content %}
   </div>
   <p>
     Words: <span id="word-count">0</span>
-    <span id="word-count-warning" class="error" hidden>
-      (need at least 25)
-    </span>
+    <span id="word-count-warning" class="error" hidden>(need at least 25)</span>
   </p>
   <ul id="topic-words" class="topic-list"></ul>
 </section>
 
 <section id="lobby-section" hidden>
   <h2>🚀 Lobby — share this link</h2>
-  <div class="join-link-box"><a id="join-link" href="" target="_blank" rel="noopener"></a></div>
+
+  {# Game settings summary — populated by host.js after game creation #}
+  <div id="lobby-settings-bar" class="lobby-settings-bar"></div>
+
+  <div class="join-link-box">
+    <a id="join-link" href="" target="_blank" rel="noopener"></a>
+  </div>
   <p class="info-box">Share the link above with your players. Start the game once everyone has joined.</p>
   <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
     <button type="button" id="copy-link-button" class="secondary">Copy link</button>
@@ -112,27 +105,43 @@ block content %}
 </section>
 
 <section id="game-section" hidden>
-  <h2>🔴 Game in progress</h2>
+  {# BINGO letters replace the plain h2 heading for visual impact #}
+  <div class="bingo-title-letters" aria-hidden="true">
+    <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
+  </div>
+
   <div class="game-controls">
     <button type="button" id="pause-button" class="secondary">⏸ Pause</button>
     <button type="button" id="resume-button" class="secondary" hidden>▶ Resume</button>
     <span id="paused-badge" class="paused-badge" hidden>⏸ Paused</span>
   </div>
+
   <div class="current-word-card" aria-live="polite">
     <div class="cw-label">Now calling</div>
     <span id="current-word">—</span>
     <p id="current-description"></p>
     <span class="call-chip">Word <span id="call-count">0</span></span>
   </div>
-  <h3>Leaderboard</h3>
-  <div id="leaderboard"></div>
-  <h3>Called words</h3>
-  <ul id="call-history"></ul>
+
+  {# Side-by-side panels: leaderboard stays compact, call history grows #}
+  <div class="game-panels">
+    <div class="game-panel">
+      <h3>Leaderboard</h3>
+      <div id="leaderboard"></div>
+    </div>
+    <div class="game-panel">
+      <h3>Called words</h3>
+      <ul id="call-history"></ul>
+    </div>
+  </div>
 </section>
 
 <section id="end-section" hidden>
-  <h2>🏆 Game ended</h2>
-  <p id="end-reason"></p>
+  <div class="bingo-title-letters" aria-hidden="true">
+    <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
+  </div>
+  <h2 style="text-align:center;border:none;padding-bottom:0;">Game over</h2>
+  <p id="end-reason" style="text-align:center;" class="muted"></p>
   <h3>Final leaderboard</h3>
   <div id="final-leaderboard"></div>
 </section>
@@ -159,6 +168,12 @@ block content %}
     </table>
   </div>
 </section>
+
+{% endblock %}
+
+{% block overlays %}
+{# Fixed overlays outside <main> so position:fixed isn't trapped by
+   main's backdrop-filter stacking context. #}
 
 <button class="help-btn" id="help-btn" aria-label="How to host">i</button>
 
@@ -210,7 +225,8 @@ block content %}
     document.addEventListener("keydown", function(e) { if (e.key === "Escape") closeModal(); });
   })();
 </script>
+{% endblock %}
 
-{% endblock %} {% block scripts %}
+{% block scripts %}
 <script src="{{ url_for('static', filename='js/host.js') }}"></script>
 {% endblock %}

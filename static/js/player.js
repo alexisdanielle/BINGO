@@ -103,6 +103,10 @@ if (!state.gameId) {
   showFieldError("email-error", "Missing ?game_id= in URL. Ask the host for the link.");
 }
 
+// Key used to persist the join session in localStorage so a page refresh
+// does not force the player through the full auth flow again.
+const SESSION_KEY = `bingo_session_${state.gameId}`;
+
 // --- Step 1: request OTP -------------------------------------------------
 $("email-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -131,6 +135,23 @@ async function sendOtp(email) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     statusEl.hidden = true;
+    // 409 "already verified" means OTP is done; try to recover the session.
+    if (res.status === 409 && (json.error || "").toLowerCase().includes("already verified")) {
+      state.playerEmail = email;
+      const rejoinRes = await fetch(`/api/games/${state.gameId}/rejoin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (rejoinRes.ok) {
+        const rejoinData = await rejoinRes.json();
+        restoreSession(rejoinData);
+        return;
+      }
+      // Verified but no card yet — let them pick a display name.
+      showJoinStep("name");
+      return;
+    }
     showFieldError("email-error", json.error || `Error ${res.status}`);
     return;
   }
@@ -180,6 +201,7 @@ $("join-form").addEventListener("submit", async (e) => {
   state.maxWinners = json.max_winners || 3;
   state.marked.add("2,2"); // FREE center always counted
 
+  saveSession();
   $("who-am-i").textContent = state.playerName;
   renderCard();
   show("game");
@@ -326,6 +348,7 @@ $("bingo-button").addEventListener("click", async () => {
 let socket = null;
 
 function connectSocket() {
+  if (socket) return; // already connected — guard against double-call on rejoin
   socket = io();
   socket.on("connect", () => socket.emit("join_game_room", { game_id: state.gameId }));
 
@@ -411,3 +434,74 @@ function renderFinalLeaderboard(wins) {
     container.appendChild(div);
   }
 }
+
+// --- Session persistence (survives page refresh) -------------------------
+
+function saveSession() {
+  if (!state.gameId) return;
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    joinToken:  state.joinToken,
+    playerName: state.playerName,
+    card:       state.card,
+    pattern:    state.pattern,
+    maxWinners: state.maxWinners,
+  }));
+}
+
+function restoreSession(data) {
+  // Accepts both camelCase (localStorage) and snake_case (server response).
+  state.joinToken  = data.joinToken  || data.join_token;
+  state.playerName = data.playerName || data.player_name;
+  state.card       = data.card;
+  state.pattern    = data.pattern    || "horizontal";
+  state.maxWinners = data.maxWinners || data.max_winners || 3;
+  state.marked.add("2,2"); // FREE center is always marked
+
+  saveSession();
+  $("who-am-i").textContent = state.playerName;
+
+  // Fetch called words so far so the card reflects the current game state.
+  fetch(`/api/games/${state.gameId}/state`)
+    .then((r) => r.json())
+    .then((s) => {
+      if (Array.isArray(s.called_words)) state.calledWords = s.called_words;
+      if (s.max_winners) state.maxWinners = s.max_winners;
+
+      const status = data.game_status || s.status;
+      if (status === "finished") {
+        show("end");
+        renderFinalLeaderboard(s.wins || []);
+        return;
+      }
+      renderCard();
+      show("game");
+      if (state.calledWords.length > 0) {
+        const last = state.calledWords[state.calledWords.length - 1];
+        $("current-word").textContent = last;
+        fitCurrentWord();
+      }
+      updateBingoButton();
+      connectSocket();
+    })
+    .catch(() => {
+      // If state fetch fails, still show the card so the player isn't stuck.
+      renderCard();
+      show("game");
+      connectSocket();
+    });
+}
+
+function tryAutoRestore() {
+  if (!state.gameId) return;
+  const saved = localStorage.getItem(SESSION_KEY);
+  if (!saved) return;
+  try {
+    const data = JSON.parse(saved);
+    if (data.joinToken && data.card) restoreSession(data);
+  } catch (_) {
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
+
+// Attempt to restore a previous session on page load.
+tryAutoRestore();

@@ -29,29 +29,21 @@
 body {
   margin: 0;
   font-family: 'Nunito', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
+  /* CGI background image shown on every page for consistent brand presence */
+  background: url('/static/img/cgi-bg.jpg') center / cover no-repeat fixed;
+  background-color: #1a0000; /* fallback while image loads */
   color: var(--fg);
   line-height: 1.5;
-  transition: background 0.4s ease;
   min-height: 100vh;
-  /* Subtle radial warmth — gives depth without a noisy pattern */
-  background-image:
-    radial-gradient(ellipse at 15% 50%, rgba(204,0,0,0.04) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 10%, rgba(204,0,0,0.05) 0%, transparent 45%);
 }
 
-/* ── Full-screen CGI background (activated when game is live) ── */
-body.game-bg {
-  background: url('/static/img/cgi-bg.jpg') center / cover no-repeat fixed;
-}
+/* game-bg kept for JS compatibility — body already shows the image */
+body.game-bg { /* intentionally no-op */ }
 
 body.game-bg main {
-  background: rgba(255,255,255,0.95);
-  border-radius: var(--radius);
-  margin: 1.25rem auto;
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.95);
+  /* backdrop-filter removed — it blurs the background image and creates a
+     stacking context that breaks position:fixed on child overlays */
 }
 
 /* ── Header ── */
@@ -94,9 +86,13 @@ header a { color: inherit; text-decoration: none; }
 /* ── Layout ── */
 main {
   max-width: 800px;
-  margin: 0 auto;
+  margin: 1.5rem auto;
   /* Extra bottom padding keeps content from sliding under the fixed help button */
   padding: 2rem 1.25rem 5rem;
+  /* Floating card sits above the background image */
+  background: rgba(244, 246, 251, 0.97);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.35);
 }
 
 section {
@@ -783,12 +779,13 @@ a:hover { color: var(--accent-dark); }
   #bingo-card td { height: 58px; font-size: 0.74rem; }
   #current-word { font-size: 2.1rem; }
   #bingo-button { font-size: 1.3rem; }
-  main { padding: 1rem 0.75rem 4.5rem; }
+  main { padding: 1rem 0.75rem 4.5rem; margin: 0.75rem auto; border-radius: 0; }
   section { padding: 1.25rem; }
   .bingo-col-header { font-size: 0.95rem; }
+  .game-panels { grid-template-columns: 1fr; }
 }
 
-/* ── Mute toggle (player page, pinned inside header) ── */
+/* ── Mute toggle (player page, pinned to viewport top-right) ── */
 .mute-toggle {
   position: fixed;
   top: calc((var(--header-height) - 30px) / 2);
@@ -803,10 +800,12 @@ a:hover { color: var(--accent-dark); }
   border-radius: 999px;
   text-transform: none;
   letter-spacing: 0;
+  /* Ensures white text stays legible over any background */
+  text-shadow: 0 1px 3px rgba(0,0,0,0.55);
 }
 .mute-toggle:hover { background: rgba(255,255,255,0.3); box-shadow: none; transform: none; }
 .mute-toggle.muted {
-  background: rgba(0,0,0,0.3);
+  background: rgba(0,0,0,0.35);
   border-color: rgba(255,255,255,0.3);
 }
 
@@ -934,3 +933,74 @@ a:hover { color: var(--accent-dark); }
 }
 .help-steps li strong { color: var(--fg); font-weight: 800; display: block; margin-bottom: 0.1rem; }
 .help-steps li span { color: var(--muted); font-weight: 500; }
+
+/* ── Host create-section hero ── */
+.create-hero {
+  text-align: center;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--accent-light);
+}
+.create-hero-sub {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* ── BINGO decorative letter row (host game header & create hero) ── */
+.bingo-title-letters {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 0.65rem;
+}
+.bingo-title-letters span {
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.22);
+}
+.bingo-title-letters span:nth-child(1) { background: #cc0000; }
+.bingo-title-letters span:nth-child(2) { background: #9333ea; }
+.bingo-title-letters span:nth-child(3) { background: #0284c7; }
+.bingo-title-letters span:nth-child(4) { background: #059669; }
+.bingo-title-letters span:nth-child(5) { background: #d97706; }
+
+/* ── Lobby settings summary chips ── */
+.lobby-settings-bar {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.settings-chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.28rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* ── Host game section: side-by-side leaderboard + call history ── */
+.game-panels {
+  display: grid;
+  grid-template-columns: 1fr 1.8fr;
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+  align-items: start;
+}
+.game-panel > h3 { margin-top: 0; }
+
+@media (max-width: 620px) {
+  .game-panels { grid-template-columns: 1fr; }
+}

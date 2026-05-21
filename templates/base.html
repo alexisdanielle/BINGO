@@ -26,6 +26,11 @@
 
     <main>{% block content %}{% endblock %}</main>
 
+    {# Fixed overlays (buttons, modals) live outside <main> so backdrop-filter
+       on main during game-bg mode does not trap them in a new containing block
+       and break position:fixed. #}
+    {% block overlays %}{% endblock %}
+
     {# Socket.IO 4.x client — speaks the same protocol as our
        python-socketio 5.x server. Pulled from CDN so we don't need a
        build step or vendored asset. #}

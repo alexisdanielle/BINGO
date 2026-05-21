@@ -296,6 +296,57 @@ def join_game(game_id: int):
 
 
 # ---------------------------------------------------------------------------
+# Rejoin (session recovery after page refresh)
+# ---------------------------------------------------------------------------
+
+@player_bp.post("/api/games/<int:game_id>/rejoin")
+def rejoin_game(game_id: int):
+    """Return an existing player's card and join token.
+
+    Called when a player refreshes and loses their in-memory session.
+    Requires the email to have a verified PlayerAuth and an existing Card
+    for this game — prevents anyone from fetching another player's card.
+    Works regardless of game status so mid-game rejoins are supported.
+    """
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify(error="email required"), 400
+
+    game = db.session.get(Game, game_id)
+    if game is None:
+        return jsonify(error="game not found"), 404
+
+    auth = db.session.scalar(
+        select(PlayerAuth).where(
+            PlayerAuth.game_id == game_id,
+            PlayerAuth.email == email,
+        )
+    )
+    if auth is None or not auth.verified:
+        return jsonify(error="Email not verified. Complete OTP verification first."), 403
+
+    existing_card = db.session.scalar(
+        select(Card).where(
+            Card.game_id == game_id,
+            Card.player_email == email,
+        )
+    )
+    if existing_card is None:
+        return jsonify(error="No card found for this email. Join the game first."), 404
+
+    return jsonify(
+        game_id=game.id,
+        player_name=existing_card.player_name,
+        card=existing_card.card_data,
+        join_token=existing_card.join_token,
+        pattern=game.pattern,
+        max_winners=game.max_winners,
+        game_status=game.status,
+    ), 200
+
+
+# ---------------------------------------------------------------------------
 # Bingo claim (unchanged)
 # ---------------------------------------------------------------------------
 

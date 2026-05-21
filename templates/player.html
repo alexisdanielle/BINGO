@@ -1,18 +1,6 @@
 {% extends "base.html" %} {% block title %}Player — Virtual Bingo{% endblock %}
 {% block content %}
 
-{# Fixed-position toggle so it stays accessible across section swaps.
-   aria-pressed reflects the muted state for screen readers. #}
-<button
-  id="mute-toggle"
-  type="button"
-  class="mute-toggle"
-  aria-pressed="false"
-  aria-label="Toggle audio"
->
-  Audio: on
-</button>
-
 <section id="join-section">
   <h2>🎯 Join game <span id="header-game-id"></span></h2>
 
@@ -123,6 +111,22 @@
   <div id="leaderboard"></div>
 </section>
 
+{% endblock %}
+
+{% block overlays %}
+{# These live outside <main> so position:fixed is relative to the viewport,
+   not to main's backdrop-filter stacking context. #}
+
+<button
+  id="mute-toggle"
+  type="button"
+  class="mute-toggle"
+  aria-pressed="false"
+  aria-label="Toggle audio"
+>
+  Audio: on
+</button>
+
 <button class="help-btn" id="help-btn" aria-label="How to play">i</button>
 
 <div class="help-overlay" id="help-overlay" role="dialog" aria-modal="true" aria-label="How to play">
@@ -169,7 +173,8 @@
     document.addEventListener("keydown", function(e) { if (e.key === "Escape") closeModal(); });
   })();
 </script>
+{% endblock %}
 
-{% endblock %} {% block scripts %}
+{% block scripts %}
 <script src="{{ url_for('static', filename='js/player.js') }}"></script>
 {% endblock %}
