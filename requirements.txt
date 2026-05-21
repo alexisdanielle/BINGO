@@ -6,4 +6,5 @@ openai
 python-dotenv
 pytest
 gunicorn
-eventlet
+gevent
+gevent-websocket
