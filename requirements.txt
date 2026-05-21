@@ -5,3 +5,5 @@ google-generativeai
 openai
 python-dotenv
 pytest
+gunicorn
+eventlet
