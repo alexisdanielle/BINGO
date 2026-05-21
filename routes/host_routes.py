@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request
 
 from game.card_generator import NON_CENTER_CELLS
+from game.email_sender import send_invite_email
 from game.game_engine import run_call_loop
 from game.patterns import PATTERN_TYPES
 from game.topic_generator import (
@@ -34,6 +35,30 @@ host_bp = Blueprint("host", __name__)
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _send_invites_bg(app, emails: list[str], join_url: str, host_name: str,
+                     topic: str, pattern: str, game_id: int) -> None:
+    """Background task: send invite emails without blocking the API response.
+
+    Runs after game creation so the host's lobby opens immediately while
+    emails are delivered in the background. Each failure is logged but does
+    not abort the remaining sends.
+    """
+    with app.app_context():
+        smtp_user = app.config.get("SMTP_USER")
+        smtp_password = app.config.get("SMTP_PASSWORD")
+        for email in emails:
+            send_invite_email(
+                to_address=email,
+                join_url=join_url,
+                host_name=host_name,
+                topic=topic,
+                pattern=pattern,
+                game_id=game_id,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+            )
 
 
 def _is_host(game: Game) -> bool:
@@ -173,17 +198,19 @@ def create_game():
             400,
         )
 
-    # Optional allowlist — host may paste a comma/newline list of emails.
+    # Invited players — required for invite-only games.
     raw_allowlist = data.get("allowed_emails")
-    allowed_emails: list[str] | None = None
-    if raw_allowlist:
-        if isinstance(raw_allowlist, str):
-            parts = re.split(r"[,\n\r]+", raw_allowlist)
-        elif isinstance(raw_allowlist, list):
-            parts = raw_allowlist
-        else:
-            return jsonify(error="allowed_emails must be a list or comma-separated string"), 400
-        allowed_emails = [e.strip().lower() for e in parts if e.strip()]
+    if not raw_allowlist:
+        return jsonify(error="allowed_emails is required — enter at least one player email"), 400
+    if isinstance(raw_allowlist, str):
+        parts = re.split(r"[,\n\r]+", raw_allowlist)
+    elif isinstance(raw_allowlist, list):
+        parts = raw_allowlist
+    else:
+        return jsonify(error="allowed_emails must be a list or newline/comma-separated string"), 400
+    allowed_emails = [e.strip().lower() for e in parts if e.strip()]
+    if not allowed_emails:
+        return jsonify(error="at least one valid email address is required"), 400
 
     game = Game(
         host_name=host_name,
@@ -197,6 +224,20 @@ def create_game():
     db.session.add(game)
     db.session.commit()
 
+    # Build the full join URL from the incoming request so it works on any
+    # host/port combination without hardcoding.
+    join_url = f"{request.host_url.rstrip('/')}/play?game_id={game.id}"
+
+    # Send invitation emails in the background so the lobby opens immediately.
+    # ``current_app._get_current_object()`` extracts the real app from the
+    # request-scoped proxy before the context is torn down.
+    app_obj = current_app._get_current_object()  # type: ignore[attr-defined]
+    topic_str = data.get("topic", "")
+    socketio.start_background_task(
+        _send_invites_bg, app_obj, allowed_emails, join_url,
+        host_name, topic_str, pattern, game.id,
+    )
+
     return (
         jsonify(
             game_id=game.id,
@@ -207,6 +248,7 @@ def create_game():
             max_winners=max_winners,
             status=game.status,
             word_count=len(cleaned_words),
+            invite_count=len(allowed_emails),
         ),
         201,
     )
