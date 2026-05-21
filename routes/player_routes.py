@@ -109,7 +109,7 @@ def request_otp(game_id: int):
     if game.status != "waiting":
         return jsonify(error=f"game is {game.status}, not accepting joins"), 409
 
-    domain = current_app.config.get("CGI_EMAIL_DOMAIN", "cgi.com")
+    domain = current_app.config.get("CGI_EMAIL_DOMAIN", "")
     allowed, reason = _email_allowed(email, game, domain)
     if not allowed:
         return jsonify(error=reason), 403

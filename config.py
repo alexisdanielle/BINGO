@@ -51,5 +51,6 @@ class Config:
     SMTP_PASSWORD: str | None = os.environ.get("SMTP_PASSWORD")
     # OTP expires this many minutes after being sent.
     OTP_EXPIRY_MINUTES: int = int(os.environ.get("OTP_EXPIRY_MINUTES", "10"))
-    # Only emails ending in this domain may join (case-insensitive check).
-    CGI_EMAIL_DOMAIN: str = os.environ.get("CGI_EMAIL_DOMAIN", "cgi.com")
+    # Optional domain restriction — when empty, any email domain is accepted.
+    # Set CGI_EMAIL_DOMAIN=cgi.com in .env to re-enable the domain check.
+    CGI_EMAIL_DOMAIN: str = os.environ.get("CGI_EMAIL_DOMAIN", "")

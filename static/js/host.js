@@ -44,15 +44,19 @@ $("create-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   hideError("create-error");
   const data = new FormData(e.target);
-  // Capture the allowlist textarea; send as-is (server parses comma/newline).
   const allowedEmailsRaw = (data.get("allowed_emails") || "").trim();
+  // Emails are required — the game is invite-only.
+  if (!allowedEmailsRaw) {
+    showError("create-error", "Player invite list is required. Enter at least one email address.");
+    return;
+  }
   state.draft = {
     host_name: (data.get("host_name") || "").trim() || "Host",
     topic: (data.get("topic") || "").trim(),
     pattern: data.get("pattern") || "horizontal",
     call_interval_seconds: Number(data.get("call_interval_seconds") || 5),
     max_winners: Number(data.get("max_winners") || 3),
-    allowed_emails: allowedEmailsRaw || null,
+    allowed_emails: allowedEmailsRaw,
   };
   if (!state.draft.topic) {
     showError("create-error", "Topic is required.");
@@ -185,15 +189,20 @@ $("manual-button").addEventListener("click", () => {
   const data = new FormData($("create-form"));
   const topic = (data.get("topic") || "").trim();
   const hostName = (data.get("host_name") || "").trim();
+  const allowedEmailsRaw = (data.get("allowed_emails") || "").trim();
   if (!hostName) { showError("create-error", "Host name is required."); return; }
   if (!topic)    { showError("create-error", "Topic is required."); return; }
+  if (!allowedEmailsRaw) {
+    showError("create-error", "Player invite list is required. Enter at least one email address.");
+    return;
+  }
   state.draft = {
     host_name: hostName,
     topic,
     pattern: data.get("pattern") || "horizontal",
     call_interval_seconds: Number(data.get("call_interval_seconds") || 5),
     max_winners: Number(data.get("max_winners") || 3),
-    allowed_emails: (data.get("allowed_emails") || "").trim() || null,
+    allowed_emails: allowedEmailsRaw,
   };
   state.topicWords = [];
   $("topic-display").textContent = topic;
@@ -237,8 +246,6 @@ $("accept-button").addEventListener("click", async () => {
   const body = {
     ...state.draft,
     game_words: cleaned,
-    // Only send allowed_emails when the host actually entered something.
-    allowed_emails: state.draft.allowed_emails || undefined,
   };
   const res = await fetch("/api/games", {
     method: "POST",
@@ -259,6 +266,14 @@ $("accept-button").addEventListener("click", async () => {
   const a = $("join-link");
   a.href = link;
   a.textContent = link;
+
+  // Show how many invitation emails are being dispatched.
+  const n = json.invite_count || 0;
+  if (n > 0) {
+    const statusEl = $("invites-status");
+    statusEl.textContent = `✉ Invitations sent to ${n} player${n === 1 ? "" : "s"}.`;
+    statusEl.style.display = "block";
+  }
 
   show("lobby");
   renderLobbySettings();

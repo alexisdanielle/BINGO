@@ -56,13 +56,16 @@
     <label>Number of winners
       <input type="number" name="max_winners" value="3" min="1" max="5" />
     </label>
-    <label>Restrict to these emails <span class="muted">(optional — leave blank to allow anyone)</span>
+    <label>Player invite list <span class="field-required">*</span>
+      <span class="field-hint">One email per line or comma-separated. Each person receives an invitation email with the join link when the lobby opens.</span>
       <textarea
         name="allowed_emails"
-        rows="3"
-        placeholder="alice@cgi.com&#10;bob@cgi.com&#10;carol@cgi.com"
+        rows="4"
+        placeholder="alice@example.com&#10;bob@example.com&#10;carol@example.com"
+        required
       ></textarea>
     </label>
+    <p id="emails-error" class="error" hidden></p>
     <div class="form-actions">
       <button type="submit" id="generate-button">Generate word list with AI</button>
       <button type="button" id="manual-button" class="secondary">Enter words manually</button>
@@ -102,10 +105,11 @@
   {# Game settings summary — populated by host.js after game creation #}
   <div id="lobby-settings-bar" class="lobby-settings-bar"></div>
 
+  <p id="invites-status" class="invites-status" style="display:none"></p>
   <div class="join-link-box">
     <a id="join-link" href="" target="_blank" rel="noopener"></a>
   </div>
-  <p class="info-box">Share the link above with your players. Start the game once everyone has joined.</p>
+  <p class="info-box">Invited players have received an email with the join link. Start the game once everyone has joined.</p>
   <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
     <button type="button" id="copy-link-button" class="secondary">Copy link</button>
     <button id="start-button" type="button">Start game</button>

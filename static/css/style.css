@@ -523,6 +523,32 @@ ol, ul { padding-left: 1.5rem; }
   min-height: 1.5em;
 }
 
+/* ── Form field helpers ── */
+.field-required { color: var(--accent); font-weight: 700; margin-left: 1px; }
+.field-hint {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin: 0.2rem 0 0.35rem;
+  line-height: 1.4;
+}
+
+/* ── Invite status shown in lobby after game creation ── */
+.invites-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #166534;
+  margin-bottom: 0.75rem;
+}
+
 /* ── Info / notice boxes ── */
 .info-box {
   background: #fff8f8;
