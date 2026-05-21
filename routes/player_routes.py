@@ -383,7 +383,14 @@ def claim_bingo(game_id: int):
     with _lock_for_game(game_id):
         # Re-read after grabbing the lock — state might have changed.
         db.session.refresh(game)
-        if game.status != "active":
+        # Accept claims on "active" games normally.
+        # Also accept claims on "finished" games that ended because the word
+        # pool exhausted (not because max_winners was hit), so a player who
+        # completed their pattern on the very last word isn't unfairly blocked
+        # by the calling loop ending the game a fraction of a second earlier.
+        if game.status == "finished" and len(game.wins) >= game.max_winners:
+            return jsonify(error="all places are taken"), 409
+        if game.status not in ("active", "finished"):
             return jsonify(error=f"game is {game.status}, can't claim now"), 409
         if any(w.card_id == card.id for w in game.wins):
             return jsonify(error="you have already won this game"), 409

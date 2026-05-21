@@ -11,6 +11,10 @@ const state = {
   marked: new Set(),  // "r,c" keys — player clicked; UX only
   calledWords: [],
   muted: false,
+  alreadyWon: false,      // true once a /bingo claim succeeds — suppresses grace window
+  graceActive: false,     // true while grace countdown is running
+  graceTimerId: null,
+  graceOnExpire: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -30,13 +34,27 @@ function playSound(name) {
   try { a.currentTime = 0; a.play().catch(() => {}); } catch (_) {}
 }
 
-function speak(word, description) {
+// Warms up the browser's speech-synthesis engine on the first user
+// interaction so Chrome doesn't block the first spoken word.
+function initSpeech() {
+  if (!("speechSynthesis" in window)) return;
+  // Calling getVoices() triggers loading in Chrome; we discard the result.
+  speechSynthesis.getVoices();
+}
+
+function speak(word) {
   if (state.muted) return;
   if (!("speechSynthesis" in window)) return;
+  // Chrome bug: after inactivity or a pause, speechSynthesis can get stuck.
+  // Resuming before cancelling + a short setTimeout reliably unsticks it.
+  if (speechSynthesis.paused) speechSynthesis.resume();
   speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(word);
-  utt.rate = 0.9;
-  speechSynthesis.speak(utt);
+  setTimeout(() => {
+    const utt = new SpeechSynthesisUtterance(word);
+    utt.rate = 0.9;
+    utt.lang = "en-US";
+    speechSynthesis.speak(utt);
+  }, 80);
 }
 
 function stopSpeaking() {
@@ -55,14 +73,28 @@ function setMuted(value) {
   state.muted = value;
   localStorage.setItem("bingoMuted", String(value));
   const btn = $("mute-toggle");
-  btn.textContent = value ? "Audio: muted" : "Audio: on";
+  btn.textContent = value ? "🔇 Muted" : "🔊 Audio on";
   btn.setAttribute("aria-pressed", String(value));
   btn.classList.toggle("muted", value);
   if (value) stopSpeaking();
 }
-state.muted = localStorage.getItem("bingoMuted") === "true";
+// Default to NOT muted on every fresh page load so players don't sit through
+// a game in silence because a leftover localStorage value muted them.
+// The preference is still saved so a deliberate mute survives a refresh within
+// the same session, but we never silently inherit mute from a previous session.
+const _savedMute = localStorage.getItem("bingoMuted");
+// Only honour a saved mute if it was set in THIS tab/session.
+// We detect "same session" by checking sessionStorage rather than localStorage.
+const _sessionMuted = sessionStorage.getItem("bingoMuted") === "true";
+state.muted = _sessionMuted; // start unmuted unless the user muted in this session
 setMuted(state.muted);
-$("mute-toggle").addEventListener("click", () => setMuted(!state.muted));
+$("mute-toggle").addEventListener("click", () => {
+  const next = !state.muted;
+  setMuted(next);
+  // Persist across refreshes within the same browser tab session.
+  sessionStorage.setItem("bingoMuted", String(next));
+  initSpeech(); // first click is a user gesture — prime TTS engine
+});
 
 // --- Section / step helpers ----------------------------------------------
 const sections  = { join: $("join-section"), game: $("game-section"), end: $("end-section") };
@@ -203,6 +235,7 @@ $("join-form").addEventListener("submit", async (e) => {
 
   saveSession();
   $("who-am-i").textContent = state.playerName;
+  initSpeech(); // prime TTS on this user-gesture-triggered join
   renderCard();
   show("game");
   connectSocket();
@@ -256,12 +289,15 @@ function targetCellSet() {
 
 function checkWinCondition() {
   if (!state.card || !state.pattern) return false;
-  const calledSet = new Set(state.calledWords.map((w) => w.toLowerCase()));
+  const calledSet = new Set(state.calledWords.map(norm));
+  // Both conditions must hold: the host has called the word AND the player
+  // manually marked that cell. This keeps the game interactive — players must
+  // actively track the words being called.
   return getPatterns(state.pattern).some((pattern) =>
     pattern.every(([r, c]) => {
-      if (state.card[r][c] === "FREE") return true;
-      // Word must have been called AND the player must have clicked the cell.
-      return calledSet.has(state.card[r][c].toLowerCase()) && state.marked.has(`${r},${c}`);
+      const word = state.card[r][c];
+      if (word === "FREE") return true;
+      return calledSet.has(norm(word)) && state.marked.has(`${r},${c}`);
     })
   );
 }
@@ -271,6 +307,42 @@ function updateBingoButton() {
   const ready = checkWinCondition();
   btn.disabled = !ready;
   btn.classList.toggle("ready", ready);
+}
+
+// Grace window: shown when game_ended fires but the player has a complete
+// marked winning pattern. Gives them 8 seconds to click BINGO before the
+// screen switches to the final leaderboard.
+function startGraceWindow(onExpire) {
+  state.graceActive  = true;
+  state.graceOnExpire = onExpire;
+  const banner  = $("grace-banner");
+  const timerEl = $("grace-timer");
+  banner.style.display = "flex";
+  updateBingoButton(); // button should be enabled since checkWinCondition() is true
+
+  let remaining = 8;
+  timerEl.textContent = remaining;
+
+  const tick = () => {
+    remaining--;
+    timerEl.textContent = remaining;
+    if (remaining <= 0) {
+      endGraceWindow();
+      onExpire();
+    } else {
+      state.graceTimerId = setTimeout(tick, 1000);
+    }
+  };
+  state.graceTimerId = setTimeout(tick, 1000);
+}
+
+function endGraceWindow() {
+  state.graceActive = false;
+  if (state.graceTimerId) {
+    clearTimeout(state.graceTimerId);
+    state.graceTimerId = null;
+  }
+  $("grace-banner").style.display = "none";
 }
 
 // --- Word display fit ----------------------------------------------------
@@ -289,11 +361,16 @@ function fitCurrentWord() {
   }
 }
 
+// Normalize a word for comparison: lowercase + collapsed whitespace.
+// Used in every calledSet lookup so AI-generated words with unusual spacing
+// or capitalisation always match what appears on the card.
+const norm = (w) => w.trim().toLowerCase().replace(/\s+/g, " ");
+
 // --- Card rendering ------------------------------------------------------
 function renderCard(newlyCalledWord = null) {
   const table = $("bingo-card");
   table.innerHTML = "";
-  const calledSet = new Set(state.calledWords.map((w) => w.toLowerCase()));
+  const calledSet = new Set(state.calledWords.map(norm));
   const targets   = targetCellSet();
   for (let r = 0; r < 5; r++) {
     const tr = document.createElement("tr");
@@ -304,10 +381,10 @@ function renderCard(newlyCalledWord = null) {
       td.textContent = word;
       if (state.marked.has(key)) td.classList.add("marked");
       if (word === "FREE")        td.classList.add("free");
-      if (calledSet.has(word.toLowerCase())) td.classList.add("called");
+      if (calledSet.has(norm(word))) td.classList.add("called");
       if (targets.has(key))       td.classList.add("target");
       // Animate the cell that was just called (if it's on this card).
-      if (newlyCalledWord && word.toLowerCase() === newlyCalledWord.toLowerCase()) {
+      if (newlyCalledWord && norm(word) === norm(newlyCalledWord)) {
         td.classList.add("just-called");
       }
       td.dataset.r = r;
@@ -325,6 +402,7 @@ function toggleMark(r, c) {
   state.marked.has(key) ? state.marked.delete(key) : state.marked.add(key);
   playSound("click");
   renderCard();
+  updateBingoButton(); // re-check win condition whenever a cell is toggled
 }
 
 // --- Bingo claim ---------------------------------------------------------
@@ -336,11 +414,26 @@ $("bingo-button").addEventListener("click", async () => {
   const json = await res.json().catch(() => ({}));
   const result = $("claim-result");
   if (res.ok) {
+    state.alreadyWon = true;
     result.textContent = `You won place ${json.place}! (${json.pattern_matched})`;
     result.className = "success";
+    // If inside the grace window, cancel the countdown and navigate to the
+    // end screen after a short pause so the player can read their result.
+    if (state.graceActive) {
+      const onExpire = state.graceOnExpire;
+      endGraceWindow();
+      setTimeout(onExpire, 2000);
+    }
   } else {
     result.textContent = json.error || `Error ${res.status}`;
     result.className = "error";
+    // On a failed claim during grace (e.g. all spots filled), still navigate
+    // to the end screen after a brief delay so the player isn't stuck.
+    if (state.graceActive) {
+      const onExpire = state.graceOnExpire;
+      endGraceWindow();
+      setTimeout(onExpire, 1500);
+    }
   }
 });
 
@@ -362,7 +455,7 @@ function connectSocket() {
     fitCurrentWord(); // scale font so the word never wraps
     wordEl.classList.add("pop");
     $("current-description").textContent = description || "";
-    speak(word, description);
+    speak(word);
     renderCard(word);       // pass newly-called word for cell animation
     updateBingoButton();
   });
@@ -384,13 +477,24 @@ function connectSocket() {
   });
 
   socket.on("game_ended", () => {
-    fetch(`/api/games/${state.gameId}/state`)
-      .then((r) => r.json())
-      .then((s) => {
-        if (s.max_winners) state.maxWinners = s.max_winners;
-        show("end");
-        renderFinalLeaderboard(s.wins || []);
-      });
+    stopSpeaking();
+    const goToEnd = () => {
+      fetch(`/api/games/${state.gameId}/state`)
+        .then((r) => r.json())
+        .then((s) => {
+          if (s.max_winners) state.maxWinners = s.max_winners;
+          show("end");
+          renderFinalLeaderboard(s.wins || []);
+        });
+    };
+    // If the player has a fully-marked winning pattern but hasn't claimed yet,
+    // give them 8 seconds before the screen switches — so the last word
+    // being called doesn't cut them off before they can click BINGO.
+    if (!state.alreadyWon && checkWinCondition()) {
+      startGraceWindow(goToEnd);
+    } else {
+      goToEnd();
+    }
   });
 }
 

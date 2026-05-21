@@ -90,15 +90,19 @@ async function fetchTopicPreview() {
 }
 
 function setGenerating(isGenerating) {
-  const btn = $("generate-button");
-  const status = $("generate-status");
-  btn.disabled = isGenerating;
-  if (isGenerating) {
-    status.textContent = "Generating word list — this can take a few seconds…";
-    status.hidden = false;
-  } else {
-    status.hidden = true;
+  // Disable both the create-form submit and the topic-screen regenerate button
+  // so the host can't trigger two simultaneous requests.
+  $("generate-button").disabled = isGenerating;
+  const regen = $("regenerate-button");
+  if (regen) {
+    regen.disabled = isGenerating;
+    // When regenerating from the topic screen the spinner paragraph is in the
+    // hidden create section, so change the button text as the visual cue instead.
+    regen.textContent = isGenerating ? "Regenerating…" : "Regenerate all";
   }
+  // Use style.display directly so there is no ambiguity with the CSS class —
+  // the spinner is hidden on page load via style="display:none" in HTML.
+  $("generate-status").style.display = isGenerating ? "flex" : "none";
 }
 
 // --- Step 2: edit/delete/regenerate the topic list ----------------------
@@ -109,9 +113,15 @@ function renderTopicList() {
     const li = document.createElement("li");
     li.className = "topic-row";
 
+    // Row number badge for easy visual reference
+    const num = document.createElement("span");
+    num.className = "topic-row-num";
+    num.textContent = idx + 1;
+
     const word = document.createElement("input");
     word.type = "text";
     word.className = "topic-word";
+    word.placeholder = "Word";
     word.value = entry.word;
     // Two-way bind: edits in the DOM flow back into state immediately,
     // so when the host clicks Accept we send their current edits.
@@ -121,34 +131,90 @@ function renderTopicList() {
 
     const desc = document.createElement("textarea");
     desc.className = "topic-desc";
-    desc.rows = 2;
+    desc.rows = 1;
+    desc.placeholder = "Description (optional)";
     desc.value = entry.description;
     desc.addEventListener("input", () => {
       state.topicWords[idx].description = desc.value;
+      // Auto-grow: match scroll height so one-liners stay compact
+      desc.style.height = "auto";
+      desc.style.height = desc.scrollHeight + "px";
+    });
+    // Set initial height after value is set
+    requestAnimationFrame(() => {
+      desc.style.height = "auto";
+      desc.style.height = desc.scrollHeight + "px";
     });
 
     const del = document.createElement("button");
     del.type = "button";
     del.className = "delete-row";
-    del.textContent = "Delete";
+    del.textContent = "×";
+    del.title = "Remove this word";
     del.addEventListener("click", () => {
       state.topicWords.splice(idx, 1);
       renderTopicList();
     });
 
+    li.appendChild(num);
     li.appendChild(word);
     li.appendChild(desc);
     li.appendChild(del);
     ul.appendChild(li);
   });
 
-  // Update the count + warning every render so the host sees the state
-  // change after deletes/regenerates without an extra click.
+  // Update count + warnings every render.
   const count = state.topicWords.length;
   $("word-count").textContent = String(count);
-  $("word-count-warning").hidden = count >= 25;
-  $("accept-button").disabled = count < 25;
+  $("word-count-warning").hidden = count === EXACT_WORDS; // show whenever count ≠ 40
+  $("accept-button").disabled = count !== EXACT_WORDS;   // only enable at exactly 40
+  $("add-word-button").disabled = count >= MAX_WORDS;
 }
+
+const MAX_WORDS = 40;
+const EXACT_WORDS = 40; // the list must contain exactly this many words
+
+// Back button on topic screen — returns to create form without losing draft data.
+$("back-to-create-button").addEventListener("click", () => {
+  show("create");
+});
+
+// Manual entry: skip AI, go to the topic screen with an empty word list.
+$("manual-button").addEventListener("click", () => {
+  hideError("create-error");
+  const data = new FormData($("create-form"));
+  const topic = (data.get("topic") || "").trim();
+  const hostName = (data.get("host_name") || "").trim();
+  if (!hostName) { showError("create-error", "Host name is required."); return; }
+  if (!topic)    { showError("create-error", "Topic is required."); return; }
+  state.draft = {
+    host_name: hostName,
+    topic,
+    pattern: data.get("pattern") || "horizontal",
+    call_interval_seconds: Number(data.get("call_interval_seconds") || 5),
+    max_winners: Number(data.get("max_winners") || 3),
+    allowed_emails: (data.get("allowed_emails") || "").trim() || null,
+  };
+  state.topicWords = [];
+  $("topic-display").textContent = topic;
+  renderTopicList();
+  show("topic");
+});
+
+// Add a blank word row so the host can type in their own word.
+$("add-word-button").addEventListener("click", () => {
+  if (state.topicWords.length >= MAX_WORDS) return;
+  state.topicWords.push({ word: "", description: "" });
+  renderTopicList();
+  // Scroll the new row into view and focus its word input.
+  const rows = document.querySelectorAll("#topic-words .topic-row");
+  const lastRow = rows[rows.length - 1];
+  if (lastRow) {
+    lastRow.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const input = lastRow.querySelector("input.topic-word");
+    if (input) input.focus();
+  }
+});
 
 $("regenerate-button").addEventListener("click", async () => {
   await fetchTopicPreview();
@@ -163,8 +229,8 @@ $("accept-button").addEventListener("click", async () => {
     }))
     .filter((e) => e.word);
 
-  if (cleaned.length < 25) {
-    alert(`Need at least 25 words, currently have ${cleaned.length}.`);
+  if (cleaned.length !== EXACT_WORDS) {
+    alert(`Need exactly ${EXACT_WORDS} words — currently have ${cleaned.length}.`);
     return;
   }
 
@@ -236,6 +302,19 @@ $("resume-button").addEventListener("click", async () => {
   }
 });
 
+$("end-game-button").addEventListener("click", async () => {
+  if (!confirm("End the game now for everyone? This cannot be undone.")) return;
+  const res = await fetch(`/api/games/${state.gameId}/end`, {
+    method: "POST",
+    headers: { "X-Host-Token": state.hostToken },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert("Failed to end game: " + (err.error || res.status));
+  }
+  // UI transition happens via the game_ended socket event, same as a natural end.
+});
+
 // --- Sockets ------------------------------------------------------------
 function connectSocket() {
   socket = io();
@@ -273,24 +352,30 @@ function connectSocket() {
     renderLeaderboard("leaderboard");
   });
   socket.on("game_paused", () => {
-    $("pause-button").hidden = true;
-    $("resume-button").hidden = false;
-    $("paused-badge").hidden = false;
+    $("pause-button").style.display = "none";
+    $("resume-button").style.display = "inline-block";
+    $("paused-badge").style.display = "inline-flex";
     if ("speechSynthesis" in window) speechSynthesis.cancel();
   });
   socket.on("game_resumed", () => {
-    $("pause-button").hidden = false;
-    $("resume-button").hidden = true;
-    $("paused-badge").hidden = true;
+    $("pause-button").style.display = "inline-block";
+    $("resume-button").style.display = "none";
+    $("paused-badge").style.display = "none";
   });
   socket.on("game_ended", ({ reason }) => {
     show("end");
     const n = state.maxWinners;
-    $("end-reason").textContent =
-      reason === "last_winner"
-        ? `We have our top ${n} winner${n === 1 ? "" : "s"}!`
-        : `Game ended (${reason}).`;
-    renderLeaderboard("final-leaderboard");
+    const reasonMessages = {
+      last_winner: `We have our top ${n} winner${n === 1 ? "" : "s"}!`,
+      pool_exhausted: "All words have been called.",
+      host_ended: "The host ended the game.",
+    };
+    $("end-reason").textContent = reasonMessages[reason] || `Game ended (${reason}).`;
+    // Fetch full game state so the host's final leaderboard can include emails.
+    fetch(`/api/games/${state.gameId}/state`)
+      .then((r) => r.json())
+      .then((s) => renderFinalLeaderboard("final-leaderboard", s.wins || []))
+      .catch(() => renderLeaderboard("final-leaderboard"));
   });
 }
 
@@ -365,6 +450,44 @@ function renderLeaderboard(targetId) {
     }
     div.appendChild(place);
     div.appendChild(name);
+    container.appendChild(div);
+  }
+}
+
+// Renders the final end-of-game leaderboard with player emails visible to host.
+// Takes a `wins` array fetched from /api/games/:id/state (includes player_email).
+function renderFinalLeaderboard(targetId, wins) {
+  const container = $(targetId);
+  container.innerHTML = "";
+  const n = state.maxWinners;
+  for (let i = 0; i < n; i++) {
+    const div = document.createElement("div");
+    const win = wins.find((w) => w.place === i + 1);
+    div.className = `leaderboard-entry place-${Math.min(i + 1, 3)}`;
+    const place = document.createElement("span");
+    place.className = "place";
+    place.textContent = ordinal(i + 1);
+    const info = document.createElement("span");
+    if (win) {
+      div.classList.add("filled");
+      info.textContent = win.player_name;
+      // Show the player's email (host-only view — emails not exposed to players)
+      if (win.player_email) {
+        const email = document.createElement("span");
+        email.className = "muted";
+        email.textContent = ` <${win.player_email}>`;
+        info.appendChild(email);
+      }
+      const pat = document.createElement("span");
+      pat.className = "muted";
+      pat.textContent = ` (${win.pattern_matched})`;
+      info.appendChild(pat);
+    } else {
+      info.textContent = "—";
+      div.style.opacity = "0.45";
+    }
+    div.appendChild(place);
+    div.appendChild(info);
     container.appendChild(div);
   }
 }

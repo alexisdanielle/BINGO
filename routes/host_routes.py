@@ -264,6 +264,31 @@ def pause_game(game_id: int):
     return jsonify(status="paused"), 200
 
 
+@host_bp.post("/api/games/<int:game_id>/end")
+def end_game(game_id: int):
+    """Force-end a game immediately, broadcasting game_ended to all clients.
+
+    Works on both 'active' and 'paused' games. The calling loop in
+    run_call_loop detects the status change on its next poll and exits.
+    """
+    game = db.session.get(Game, game_id)
+    if game is None:
+        return jsonify(error="game not found"), 404
+    if not _is_host(game):
+        return jsonify(error="invalid host token"), 401
+    if game.status not in ("active", "paused"):
+        return jsonify(error=f"cannot end a {game.status} game"), 409
+    game.status = "finished"
+    game.finished_at = _utcnow()
+    db.session.commit()
+    socketio.emit(
+        "game_ended",
+        {"game_id": game.id, "reason": "host_ended"},
+        to=f"game:{game.id}",
+    )
+    return jsonify(status="finished"), 200
+
+
 @host_bp.post("/api/games/<int:game_id>/resume")
 def resume_game(game_id: int):
     """Resume a paused game; the calling loop will pick up on the next tick."""
@@ -327,6 +352,7 @@ def get_state(game_id: int):
             {
                 "place": w.place,
                 "player_name": w.card.player_name,
+                "player_email": w.card.player_email,
                 "pattern_matched": w.pattern_matched,
             }
             for w in wins_sorted

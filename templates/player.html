@@ -86,6 +86,15 @@
       <p>The host has paused the game.<br>Hang tight — it'll resume shortly.</p>
     </div>
   </div>
+  {# Grace window: appears after game_ended when the player has a winning pattern they haven't claimed yet #}
+  <div id="grace-banner" style="display:none" role="alert" aria-live="assertive">
+    <span class="grace-icon">⏰</span>
+    <div class="grace-text">
+      <strong>Game ended — you can still claim your BINGO!</strong>
+      <span>Click the button in the next <span id="grace-timer">8</span> seconds</span>
+    </div>
+  </div>
+
   <p>Playing as: <strong id="who-am-i"></strong></p>
   <div class="current-word-card" aria-live="polite">
     <div class="cw-label">Now calling</div>
@@ -106,8 +115,11 @@
 </section>
 
 <section id="end-section" hidden>
-  <h2>Game ended</h2>
-  <h3>Final leaderboard</h3>
+  <div class="bingo-title-letters" aria-hidden="true">
+    <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
+  </div>
+  <h2 style="text-align:center;border:none;padding-bottom:0;">Game over</h2>
+  <h3 style="text-align:center;margin-top:0.5rem;">Final leaderboard</h3>
   <div id="leaderboard"></div>
 </section>
 
@@ -124,7 +136,7 @@
   aria-pressed="false"
   aria-label="Toggle audio"
 >
-  Audio: on
+  🔊 Audio on
 </button>
 
 <button class="help-btn" id="help-btn" aria-label="How to play">i</button>

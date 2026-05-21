@@ -15,28 +15,6 @@ CENTER = (2, 2)
 NON_CENTER_CELLS = GRID_SIZE * GRID_SIZE - 1
 FREE_LABEL = "FREE"
 
-# Placeholder pool — 75 generic words (animals + foods + colors). Will be
-# swapped for the CGI/co-op themed list once the user provides it (D1).
-WORD_POOL: list[str] = [
-    # Animals (25)
-    "Tiger", "Panda", "Koala", "Otter", "Sloth",
-    "Falcon", "Moose", "Beaver", "Lynx", "Badger",
-    "Llama", "Parrot", "Octopus", "Dolphin", "Hedgehog",
-    "Raccoon", "Wolf", "Fox", "Bear", "Eagle",
-    "Whale", "Gecko", "Walrus", "Rabbit", "Squirrel",
-    # Foods (25)
-    "Pizza", "Sushi", "Taco", "Ramen", "Mango",
-    "Pancake", "Waffle", "Pretzel", "Dumpling", "Burrito",
-    "Croissant", "Donut", "Gnocchi", "Falafel", "Nachos",
-    "Kimchi", "Bagel", "Paella", "Gyoza", "Biscuit",
-    "Popcorn", "Gelato", "Hummus", "Samosa", "Churro",
-    # Colors (25)
-    "Red", "Blue", "Green", "Yellow", "Purple",
-    "Orange", "Pink", "Teal", "Magenta", "Crimson",
-    "Indigo", "Lavender", "Mint", "Scarlet", "Amber",
-    "Coral", "Ivory", "Jade", "Ochre", "Maroon",
-    "Olive", "Peach", "Salmon", "Tan", "Violet",
-]
 
 
 def generate_card(

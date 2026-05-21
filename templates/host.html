@@ -63,25 +63,35 @@
         placeholder="alice@cgi.com&#10;bob@cgi.com&#10;carol@cgi.com"
       ></textarea>
     </label>
-    <button type="submit" id="generate-button">Generate word list</button>
+    <div class="form-actions">
+      <button type="submit" id="generate-button">Generate word list with AI</button>
+      <button type="button" id="manual-button" class="secondary">Enter words manually</button>
+    </div>
   </form>
-  <p id="generate-status" class="muted" hidden></p>
+  <p id="generate-status" class="generate-status-msg" style="display:none">
+    <span class="spinner" aria-hidden="true"></span>
+    Generating word list — this can take a few seconds…
+  </p>
   <p id="create-error" class="error" hidden></p>
 </section>
 
 <section id="topic-section" hidden>
-  <h2>📝 Review the topic: <span id="topic-display"></span></h2>
+  <h2>📝 Topic: <span id="topic-display"></span></h2>
   <p class="muted">
-    Edit any word or description, delete entries you don't like, or
-    regenerate the whole list. You need at least 25 words to start.
+    Edit any word or description, add new rows, or delete ones you don't like.
+    You need exactly 40 words to open the lobby.
   </p>
   <div class="topic-controls">
-    <button id="regenerate-button" type="button">Regenerate all</button>
-    <button id="accept-button" type="button">Accept and open lobby</button>
+    <div class="topic-controls-left">
+      <button id="back-to-create-button" type="button" class="secondary">← Back</button>
+      <button id="regenerate-button" type="button" class="secondary">Regenerate with AI</button>
+      <button id="add-word-button" type="button" class="secondary">+ Add word</button>
+    </div>
+    <button id="accept-button" type="button">Open lobby →</button>
   </div>
-  <p>
-    Words: <span id="word-count">0</span>
-    <span id="word-count-warning" class="error" hidden>(need at least 25)</span>
+  <p class="word-count-row">
+    <span id="word-count">0</span> / 40 words
+    <span id="word-count-warning" class="error" hidden> — need exactly 40</span>
   </p>
   <ul id="topic-words" class="topic-list"></ul>
 </section>
@@ -112,8 +122,9 @@
 
   <div class="game-controls">
     <button type="button" id="pause-button" class="secondary">⏸ Pause</button>
-    <button type="button" id="resume-button" class="secondary" hidden>▶ Resume</button>
-    <span id="paused-badge" class="paused-badge" hidden>⏸ Paused</span>
+    <button type="button" id="resume-button" class="secondary" style="display:none">▶ Resume</button>
+    <button type="button" id="end-game-button" class="danger">⏹ End game</button>
+    <span id="paused-badge" class="paused-badge">⏸ Paused</span>
   </div>
 
   <div class="current-word-card" aria-live="polite">
@@ -188,7 +199,7 @@
       </li>
       <li>
         <span class="help-step-num">2</span>
-        <div><strong>Review the word list</strong><span>The AI generates 30 topic-relevant words with descriptions. Edit or delete any you don't like — you need at least 25 to start.</span></div>
+        <div><strong>Review the word list</strong><span>The AI generates 40 topic-relevant words with descriptions. Edit or delete any — you need exactly 40 to open the lobby. You can also enter all 40 words manually by clicking "Enter words manually".</span></div>
       </li>
       <li>
         <span class="help-step-num">3</span>

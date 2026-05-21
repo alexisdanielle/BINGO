@@ -75,8 +75,8 @@ header {
 }
 .header-title {
   font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   color: rgba(255,255,255,0.95);
   margin: 0;
   text-transform: uppercase;
@@ -120,25 +120,24 @@ section::before {
 
 h2 {
   margin-top: 0;
-  font-size: 1.25rem;
-  font-weight: 800;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--fg);
   padding-bottom: 0.65rem;
-  border-bottom: 2px solid var(--accent-light);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 0.45rem;
 }
-h3 { font-size: 1rem; margin: 1.25rem 0 0.6rem; font-weight: 700; color: var(--fg); }
+h3 { font-size: 0.95rem; margin: 1.1rem 0 0.5rem; font-weight: 600; color: var(--fg); }
 
 /* ── Forms ── */
 form label {
   display: block;
   margin-bottom: 1rem;
   font-size: 0.88rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fg);
-  letter-spacing: 0.01em;
 }
 form input,
 form select,
@@ -167,7 +166,7 @@ form textarea:focus {
 button {
   padding: 0.6rem 1.4rem;
   font-size: 0.92rem;
-  font-weight: 800;
+  font-weight: 600;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   color: white;
   border: none;
@@ -175,8 +174,7 @@ button {
   cursor: pointer;
   transition: transform 0.18s, box-shadow 0.18s;
   font-family: 'Nunito', inherit;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 button:hover {
   transform: translateY(-2px);
@@ -245,7 +243,7 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
   align-items: center;
   justify-content: center;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--muted);
   position: relative;
   z-index: 1;
@@ -264,11 +262,11 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
 }
 .step-label {
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--muted);
   margin-top: 0.4rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-align: center;
 }
 .step-item.active .step-label,
@@ -343,7 +341,7 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
   border-radius: 999px;
   padding: 0.25rem 0.8rem;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 500;
   color: rgba(255,255,255,0.88);
   margin-top: 0.75rem;
 }
@@ -358,13 +356,13 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
 }
 .bingo-col-header {
   text-align: center;
-  font-size: 1.15rem;
-  font-weight: 900;
-  padding: 0.45rem 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 0.4rem 0;
   border-radius: 7px 7px 2px 2px;
   color: white;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 /* Each letter gets a distinct colour */
 .bingo-col-header:nth-child(1) { background: #cc0000; }
@@ -383,12 +381,12 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
   table-layout: fixed;
 }
 #bingo-card td {
-  border: 2px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: 7px;
   text-align: center;
   height: 76px;
   font-size: 0.83rem;
-  font-weight: 600;
+  font-weight: 500;
   background: white;
   cursor: pointer;
   user-select: none;
@@ -399,26 +397,26 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
   position: relative;
 }
 #bingo-card td:hover:not(.free):not(.called) {
-  background: var(--accent-light);
+  background: #f8fafc;
   transform: scale(1.05);
-  border-color: rgba(204,0,0,0.4);
-  box-shadow: 0 4px 12px rgba(204,0,0,0.15);
+  border-color: #94a3b8;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-/* Called = word was officially announced by the server */
+/* Called = word was officially announced — soft blue, easy on eyes */
 #bingo-card td.called {
-  background: #fff5f5;
-  border-color: rgba(204,0,0,0.4);
-  color: var(--accent-dark);
-  font-weight: 700;
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e40af;
+  font-weight: 600;
 }
-/* Called AND player-marked = acknowledged (stamp styling) */
+/* Called AND player-marked = acknowledged — solid blue stamp */
 #bingo-card td.called.marked {
-  background: linear-gradient(135deg, var(--accent) 0%, #9b0000 100%);
-  border-color: var(--accent-dark);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #1d4ed8;
   color: white;
-  font-weight: 800;
-  box-shadow: 0 3px 10px rgba(140,0,0,0.3);
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(37,99,235,0.28);
 }
 /* Small checkmark stamp on the confirmed cell */
 #bingo-card td.called.marked::after {
@@ -426,7 +424,7 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
   position: absolute;
   top: 2px; right: 5px;
   font-size: 0.7rem;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.6);
   font-weight: 900;
 }
 /* Player-clicked but not yet called — greyed out so it's clear it doesn't count yet */
@@ -445,10 +443,22 @@ button.danger:hover { box-shadow: 0 6px 18px rgba(162,57,43,0.4); }
   border-color: rgba(204,0,0,0.35);
   border-width: 2px;
 }
-/* Cells that form the specific target pattern (e.g. row_3) */
+/* Cells that form the specific target pattern (e.g. row_3) — green so
+   they're clearly distinct from called cells which use red tones. */
 #bingo-card td.target:not(.called):not(.free):not(.marked) {
-  border-color: rgba(204,0,0,0.25);
-  background: rgba(255,240,240,0.55);
+  border-color: rgba(5,150,105,0.45);
+  background: rgba(236,253,245,0.85);
+  color: #065f46;
+}
+/* Target cell that has been called AND marked — still show the green tint
+   so the player can see which cells belong to the winning pattern. */
+#bingo-card td.target.called.marked {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border-color: #047857;
+}
+/* Target cell that is called but not yet marked — green border hint */
+#bingo-card td.target.called:not(.marked):not(.free) {
+  border-color: rgba(5,150,105,0.6);
 }
 
 /* Cell bounce when its word is freshly called */
@@ -529,45 +539,95 @@ ol, ul { padding-left: 1.5rem; }
 /* ── Topic-review section ── */
 .topic-controls {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  margin: 0.5rem 0 1rem;
+  margin: 0.75rem 0 1rem;
   flex-wrap: wrap;
 }
+.topic-controls-left {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.word-count-row {
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-weight: 500;
+  margin: 0 0 0.75rem;
+}
+/* The accept button is the primary action — make it stand out slightly */
+#accept-button { font-weight: 700; }
+
+/* Two-column layout: form actions side by side below the form */
+.form-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
 .topic-list { list-style: none; padding: 0; margin: 0; }
 .topic-row {
   display: grid;
-  grid-template-columns: 1fr 2fr auto;
+  grid-template-columns: 2rem 1fr 2fr auto;
   gap: 0.5rem;
-  align-items: start;
-  padding: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: white;
-  margin-bottom: 0.5rem;
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 0.4rem;
   transition: box-shadow 0.2s;
 }
-.topic-row:hover { box-shadow: var(--shadow-md); }
+.topic-row:hover { box-shadow: var(--shadow-sm); }
+.topic-row-num {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: right;
+  user-select: none;
+}
 .topic-row input.topic-word,
 .topic-row textarea.topic-desc {
   width: 100%;
-  padding: 0.4rem 0.55rem;
-  font-size: 0.9rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.88rem;
   border: 1px solid var(--border);
   border-radius: 5px;
   font-family: 'Nunito', inherit;
   color: var(--fg);
-  font-weight: 500;
+  font-weight: 400;
+  background: white;
 }
-.topic-row textarea.topic-desc { resize: vertical; }
+.topic-row input.topic-word:focus,
+.topic-row textarea.topic-desc:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(204,0,0,0.08);
+}
+.topic-row textarea.topic-desc { resize: none; overflow: hidden; }
 .topic-row button.delete-row {
-  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-dark) 100%);
-  padding: 0.4rem 0.75rem;
-  font-size: 0.78rem;
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  border-radius: 5px;
+  box-shadow: none;
+}
+.topic-row button.delete-row:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: none;
+  box-shadow: none;
 }
 
 @media (max-width: 540px) {
   .topic-row { grid-template-columns: 1fr; }
+  .topic-row-num { display: none; }
 }
 
 /* ── Topic history table ── */
@@ -583,11 +643,11 @@ ol, ul { padding-left: 1.5rem; }
   border-bottom: 1px solid var(--border);
 }
 .history-table th {
-  font-weight: 800;
+  font-weight: 600;
   color: var(--muted);
   font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   background: var(--bg);
 }
 .history-table tbody tr:hover { background: var(--accent-light); }
@@ -613,7 +673,7 @@ ol, ul { padding-left: 1.5rem; }
 }
 .leaderboard-entry.filled { animation: win-slide-in 0.4s cubic-bezier(0.34,1.56,0.64,1); }
 .leaderboard-entry .place {
-  font-weight: 900;
+  font-weight: 700;
   font-size: 1rem;
   min-width: 3.5rem;
   text-align: center;
@@ -657,7 +717,7 @@ ol, ul { padding-left: 1.5rem; }
   border-radius: 999px;
   padding: 0.25rem 0.75rem;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 500;
   transition: transform 0.15s;
 }
 #call-history li:hover { transform: scale(1.06); cursor: default; }
@@ -711,8 +771,39 @@ ol, ul { padding-left: 1.5rem; }
 }
 .pause-card p { color: var(--muted); margin: 0; font-weight: 500; }
 
+/* Grace window: banner shown when game ends but player has a claimable pattern */
+#grace-banner {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.45);
+  animation: grace-pulse 1s ease-in-out infinite alternate;
+}
+.grace-icon { font-size: 1.5rem; flex-shrink: 0; }
+.grace-text { display: flex; flex-direction: column; gap: 0.2rem; }
+.grace-text span { font-weight: 400; font-size: 0.9rem; opacity: 0.92; }
+#grace-timer {
+  font-size: 1.1rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+@keyframes grace-pulse {
+  from { box-shadow: 0 4px 16px rgba(245, 158, 11, 0.45); }
+  to   { box-shadow: 0 4px 24px rgba(245, 158, 11, 0.7); transform: scale(1.01); }
+}
+
 .paused-badge {
-  display: inline-flex;
+  /* Starts hidden — JS sets style.display to "inline-flex" on game_paused.
+     Chrome's UA [hidden]{display:none} is not !important, so a CSS
+     display value here would always win and show the badge on game load. */
+  display: none;
   align-items: center;
   gap: 0.3rem;
   background: #fef9c3;
@@ -749,7 +840,7 @@ ol, ul { padding-left: 1.5rem; }
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.85rem;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--accent-dark);
   display: flex;
   align-items: center;
@@ -794,19 +885,20 @@ a:hover { color: var(--accent-dark); }
   padding: 0.3rem 0.75rem;
   font-size: 0.78rem;
   font-weight: 700;
-  background: rgba(255,255,255,0.18);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.92);
+  color: var(--accent-dark);
+  border: 1.5px solid rgba(255,255,255,0.8);
   border-radius: 999px;
   text-transform: none;
   letter-spacing: 0;
-  /* Ensures white text stays legible over any background */
-  text-shadow: 0 1px 3px rgba(0,0,0,0.55);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.25);
 }
-.mute-toggle:hover { background: rgba(255,255,255,0.3); box-shadow: none; transform: none; }
+.mute-toggle:hover { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.3); transform: none; }
 .mute-toggle.muted {
-  background: rgba(0,0,0,0.35);
-  border-color: rgba(255,255,255,0.3);
+  background: rgba(30,30,30,0.82);
+  color: rgba(255,255,255,0.7);
+  border-color: rgba(255,255,255,0.25);
+  text-decoration: line-through;
 }
 
 /* ── How to play — fixed floating button + modal ── */
@@ -868,8 +960,8 @@ a:hover { color: var(--accent-dark); }
 }
 .help-modal-title {
   margin: 0 0 1rem;
-  font-size: 1.15rem;
-  font-weight: 900;
+  font-size: 1.1rem;
+  font-weight: 700;
   color: var(--accent);
   display: flex;
   align-items: center;
@@ -925,14 +1017,39 @@ a:hover { color: var(--accent-dark); }
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   color: white;
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 1px;
 }
-.help-steps li strong { color: var(--fg); font-weight: 800; display: block; margin-bottom: 0.1rem; }
+.help-steps li strong { color: var(--fg); font-weight: 700; display: block; margin-bottom: 0.1rem; }
 .help-steps li span { color: var(--muted); font-weight: 500; }
+
+/* ── Loading spinner (used during word list generation) ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(204,0,0,0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.generate-status-msg {
+  /* display is set to "flex" / "none" exclusively via JS — no default here
+     so the element is invisible until setGenerating(true) is called */
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
 
 /* ── Host create-section hero ── */
 .create-hero {
@@ -963,10 +1080,10 @@ a:hover { color: var(--accent-dark); }
   align-items: center;
   justify-content: center;
   font-size: 1.35rem;
-  font-weight: 900;
+  font-weight: 800;
   color: white;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.25);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.22);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
 }
 .bingo-title-letters span:nth-child(1) { background: #cc0000; }
 .bingo-title-letters span:nth-child(2) { background: #9333ea; }
@@ -987,7 +1104,7 @@ a:hover { color: var(--accent-dark); }
   border-radius: 999px;
   padding: 0.28rem 0.8rem;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--muted);
 }
 

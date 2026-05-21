@@ -51,12 +51,17 @@ def which_pattern_matched(
             f"Unknown pattern_type {pattern_type!r}; expected one of "
             f"{sorted(PATTERN_TYPES)}"
         )
-    called = set(called_words)
+    # Normalise to lower-case collapsed whitespace so AI-generated capitalisation
+    # differences between the card and the called list never cause a mismatch.
+    def _norm(w: str) -> str:
+        return " ".join(w.strip().lower().split())
+
+    called_norm = {_norm(w) for w in called_words}
     for label, pattern in zip(
         _PATTERN_LABELS[pattern_type], PATTERN_TYPES[pattern_type]
     ):
         if all(
-            card[r][c] == FREE_LABEL or card[r][c] in called
+            card[r][c] == FREE_LABEL or _norm(card[r][c]) in called_norm
             for (r, c) in pattern
         ):
             return label
