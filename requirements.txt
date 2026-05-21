@@ -8,3 +8,4 @@ pytest
 gunicorn
 gevent
 gevent-websocket
+google-auth-oauthlib

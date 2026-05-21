@@ -159,8 +159,10 @@ def request_otp(game_id: int):
         to_address=email,
         otp_code=otp,
         game_id=game_id,
-        smtp_user=current_app.config.get("SMTP_USER"),
-        smtp_password=current_app.config.get("SMTP_PASSWORD"),
+        client_id=current_app.config.get("GMAIL_CLIENT_ID"),
+        client_secret=current_app.config.get("GMAIL_CLIENT_SECRET"),
+        refresh_token=current_app.config.get("GMAIL_REFRESH_TOKEN"),
+        sender=current_app.config.get("GMAIL_SENDER"),
         expiry_minutes=expiry_minutes,
     )
 

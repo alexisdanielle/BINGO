@@ -46,8 +46,10 @@ def _send_invites_bg(app, emails: list[str], join_url: str, host_name: str,
     not abort the remaining sends.
     """
     with app.app_context():
-        smtp_user = app.config.get("SMTP_USER")
-        smtp_password = app.config.get("SMTP_PASSWORD")
+        client_id = app.config.get("GMAIL_CLIENT_ID")
+        client_secret = app.config.get("GMAIL_CLIENT_SECRET")
+        refresh_token = app.config.get("GMAIL_REFRESH_TOKEN")
+        sender = app.config.get("GMAIL_SENDER")
         for email in emails:
             send_invite_email(
                 to_address=email,
@@ -56,8 +58,10 @@ def _send_invites_bg(app, emails: list[str], join_url: str, host_name: str,
                 topic=topic,
                 pattern=pattern,
                 game_id=game_id,
-                smtp_user=smtp_user,
-                smtp_password=smtp_password,
+                client_id=client_id,
+                client_secret=client_secret,
+                refresh_token=refresh_token,
+                sender=sender,
             )
 
 

@@ -45,10 +45,13 @@ class Config:
     ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")
 
     # --- Email / OTP authentication ----------------------------------------
-    # Gmail SMTP credentials. Create an App Password at:
-    # myaccount.google.com → Security → App Passwords
-    SMTP_USER: str | None = os.environ.get("SMTP_USER")
-    SMTP_PASSWORD: str | None = os.environ.get("SMTP_PASSWORD")
+    # Gmail API OAuth2 credentials. Generate once with:
+    #   python scripts/generate_gmail_token.py
+    # then add the printed values as Render environment variables.
+    GMAIL_CLIENT_ID: str | None = os.environ.get("GMAIL_CLIENT_ID")
+    GMAIL_CLIENT_SECRET: str | None = os.environ.get("GMAIL_CLIENT_SECRET")
+    GMAIL_REFRESH_TOKEN: str | None = os.environ.get("GMAIL_REFRESH_TOKEN")
+    GMAIL_SENDER: str | None = os.environ.get("GMAIL_SENDER")
     # OTP expires this many minutes after being sent.
     OTP_EXPIRY_MINUTES: int = int(os.environ.get("OTP_EXPIRY_MINUTES", "10"))
     # Optional domain restriction — when empty, any email domain is accepted.
