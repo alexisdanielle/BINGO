@@ -2,6 +2,7 @@
 
 const state = {
   gameId: null,
+  joinCode: null,
   joinToken: null,
   playerName: null,
   playerEmail: null,
@@ -129,15 +130,18 @@ function hideFieldError(id) {
 
 // --- URL / game id -------------------------------------------------------
 const params = new URLSearchParams(location.search);
-state.gameId = parseInt(params.get("game_id") || "0", 10);
+state.gameId  = parseInt(params.get("game_id") || "0", 10);
+state.joinCode = params.get("code") || "";
 $("header-game-id").textContent = state.gameId ? `#${state.gameId}` : "";
-if (!state.gameId) {
-  showFieldError("email-error", "Missing ?game_id= in URL. Ask the host for the link.");
+if (!state.gameId || !state.joinCode) {
+  showFieldError("email-error", "Invalid or missing join link. Ask the host for a new one.");
 }
 
 // Key used to persist the join session in localStorage so a page refresh
 // does not force the player through the full auth flow again.
-const SESSION_KEY = `bingo_session_${state.gameId}`;
+// Include joinCode so a new game that reuses game_id=1 after a DB reset
+// doesn't accidentally restore a session from the previous game.
+const SESSION_KEY = `bingo_session_${state.gameId}_${state.joinCode}`;
 
 // --- Step 1: request OTP -------------------------------------------------
 $("email-form").addEventListener("submit", async (e) => {
@@ -158,7 +162,7 @@ async function sendOtp(email) {
   statusEl.textContent = "Sending…";
   statusEl.hidden = false;
 
-  const res = await fetch(`/api/games/${state.gameId}/request-otp`, {
+  const res = await fetch(`/api/games/${state.gameId}/request-otp?code=${state.joinCode}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -170,7 +174,7 @@ async function sendOtp(email) {
     // 409 "already verified" means OTP is done; try to recover the session.
     if (res.status === 409 && (json.error || "").toLowerCase().includes("already verified")) {
       state.playerEmail = email;
-      const rejoinRes = await fetch(`/api/games/${state.gameId}/rejoin`, {
+      const rejoinRes = await fetch(`/api/games/${state.gameId}/rejoin?code=${state.joinCode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -212,7 +216,7 @@ $("otp-form").addEventListener("submit", async (e) => {
 $("join-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!state.gameId) return;
-  const res = await fetch(`/api/games/${state.gameId}/join`, {
+  const res = await fetch(`/api/games/${state.gameId}/join?code=${state.joinCode}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -262,7 +262,7 @@ $("accept-button").addEventListener("click", async () => {
   state.hostToken = json.host_token;
   state.maxWinners = json.max_winners || 3;
 
-  const link = `${location.origin}/play?game_id=${json.game_id}`;
+  const link = `${location.origin}${json.join_link}`;
   const a = $("join-link");
   a.href = link;
   a.textContent = link;
