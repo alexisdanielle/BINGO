@@ -220,6 +220,7 @@ def create_game():
         host_name=host_name,
         pattern=pattern,
         host_token=secrets.token_urlsafe(16),
+        join_code=secrets.token_urlsafe(6),
         call_interval_seconds=interval,
         max_winners=max_winners,
         game_words=cleaned_words,
@@ -230,7 +231,7 @@ def create_game():
 
     # Build the full join URL from the incoming request so it works on any
     # host/port combination without hardcoding.
-    join_url = f"{request.host_url.rstrip('/')}/play?game_id={game.id}"
+    join_url = f"{request.host_url.rstrip('/')}/play?game_id={game.id}&code={game.join_code}"
 
     # Send invitation emails in the background so the lobby opens immediately.
     # ``current_app._get_current_object()`` extracts the real app from the
@@ -246,7 +247,7 @@ def create_game():
         jsonify(
             game_id=game.id,
             host_token=game.host_token,
-            join_link=f"/play?game_id={game.id}",
+            join_link=f"/play?game_id={game.id}&code={game.join_code}",
             pattern=pattern,
             call_interval_seconds=interval,
             max_winners=max_winners,

@@ -66,6 +66,18 @@ def _generate_otp() -> str:
     return str(100000 + secrets.randbelow(900000))
 
 
+def _check_join_code(game: Game) -> bool:
+    """Return True if the request's ?code= param matches the game's join_code.
+
+    Games created before this feature have join_code=None — we allow them
+    through so old links aren't broken on upgrade. New games always have a
+    code and it must match.
+    """
+    if game.join_code is None:
+        return True
+    return request.args.get("code") == game.join_code
+
+
 def _email_allowed(email: str, game: Game, domain: str) -> tuple[bool, str]:
     """Check whether ``email`` is permitted to join ``game``.
 
@@ -106,6 +118,8 @@ def request_otp(game_id: int):
     game = db.session.get(Game, game_id)
     if game is None:
         return jsonify(error="game not found"), 404
+    if not _check_join_code(game):
+        return jsonify(error="invalid or expired join link"), 403
     if game.status != "waiting":
         return jsonify(error=f"game is {game.status}, not accepting joins"), 409
 
@@ -237,6 +251,8 @@ def join_game(game_id: int):
     game = db.session.get(Game, game_id)
     if game is None:
         return jsonify(error="game not found"), 404
+    if not _check_join_code(game):
+        return jsonify(error="invalid or expired join link"), 403
     if game.status != "waiting":
         return jsonify(error=f"game is {game.status}, not accepting joins"), 409
     if not game.game_words:
@@ -318,6 +334,8 @@ def rejoin_game(game_id: int):
     game = db.session.get(Game, game_id)
     if game is None:
         return jsonify(error="game not found"), 404
+    if not _check_join_code(game):
+        return jsonify(error="invalid or expired join link"), 403
 
     auth = db.session.scalar(
         select(PlayerAuth).where(

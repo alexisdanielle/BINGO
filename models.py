@@ -72,6 +72,10 @@ class Game(db.Model):
     # Optional per-game allowlist: list of lowercase email strings. When set,
     # only these emails may request an OTP; when null, any @domain email may join.
     allowed_emails: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Short random code included in the join URL so that if the database
+    # resets (e.g. Render redeploy) and game IDs restart from 1, old links
+    # from a previous session are rejected instead of joining the wrong game.
+    join_code: Mapped[str | None] = mapped_column(nullable=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -248,6 +252,10 @@ def _apply_migrations(app: Flask) -> None:
                 # JSON column — NULL means no allowlist (anyone can join).
                 pending_games.append(
                     "ALTER TABLE games ADD COLUMN allowed_emails TEXT"
+                )
+            if "join_code" not in games_cols:
+                pending_games.append(
+                    "ALTER TABLE games ADD COLUMN join_code TEXT"
                 )
 
             for sql in pending_games:
