@@ -13,6 +13,9 @@ env/
 instance/
 .env
 
+# OAuth2 credentials — contains client secret, never commit
+credentials.json
+
 # Editors / IDEs
 .vscode/
 .idea/

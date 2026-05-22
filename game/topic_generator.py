@@ -25,9 +25,10 @@ from models import Topic, db
 log = logging.getLogger(__name__)
 
 
-# Generous default; the host can keep ~25-30 of these after pruning and
-# still have enough for a 5x5 card pool (24 non-FREE cells minimum).
-DEFAULT_COUNT = 40
+# Ask for 45 so even when the LLM returns slightly fewer than requested
+# (common behaviour) the host still gets ~40+ words to work with without
+# needing to add any manually.
+DEFAULT_COUNT = 45
 
 
 class TopicGenerationError(RuntimeError):
