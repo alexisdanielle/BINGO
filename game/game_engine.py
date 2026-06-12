@@ -77,6 +77,27 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Rough speaking rate of the browser speech synthesiser at our chosen rate
+# (~0.95). Used to estimate how long clients need to read a word and its
+# description aloud before we call the next word, so a long description is
+# never cut off mid-sentence. This is only an estimate: each client speaks
+# in its own browser, so the server can't observe the real end-of-speech.
+_WORDS_PER_SECOND = 2.3
+# Extra padding so the next word never lands the instant speech ends.
+_READ_BUFFER_SECONDS = 1.5
+
+
+def _estimate_read_seconds(word: str, description: str) -> float:
+    """Estimate seconds for a client to speak ``word`` then ``description``.
+
+    Counts words in the combined text and divides by an assumed speaking
+    rate, then adds a fixed buffer. Used to pace the call loop so the
+    caller finishes reading the clue before moving on.
+    """
+    word_count = len(f"{word} {description}".split())
+    return word_count / _WORDS_PER_SECOND + _READ_BUFFER_SECONDS
+
+
 def run_call_loop(app: Flask, game_id: int) -> None:
     """Background task: call one random uncalled word per interval.
 
@@ -165,10 +186,18 @@ def run_call_loop(app: Flask, game_id: int) -> None:
                     },
                     to=f"game:{game.id}",
                 )
+                # Wait long enough for clients to finish reading the word
+                # AND its description aloud (feature: caller reads the full
+                # clue before advancing). The host-set interval acts as a
+                # floor, so a short clue still respects the chosen pace.
+                wait_seconds = max(
+                    game.call_interval_seconds,
+                    _estimate_read_seconds(word, description),
+                )
                 # Sleep in 0.5-second steps so a host pause takes effect
                 # within ~0.5 s instead of waiting the full interval.
                 elapsed = 0.0
-                while elapsed < game.call_interval_seconds:
+                while elapsed < wait_seconds:
                     socketio.sleep(0.5)
                     db.session.refresh(game)
                     if game.status == "paused":
