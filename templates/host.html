@@ -65,6 +65,11 @@ block content %}
         max="60"
       />
     </label>
+    {# Live, rough estimate of how long a round will run. Updated by
+       host.js (renderTimeEstimate) whenever the interval or pattern
+       changes. Labelled as an estimate because real bingo timing depends
+       on which words land on whose card. #}
+    <p id="time-estimate" class="muted estimate-line"></p>
     <label
       >Number of winners
       <input

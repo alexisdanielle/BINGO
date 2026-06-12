@@ -492,14 +492,72 @@ function renderPatternPreview(patternKey) {
   captionEl.textContent = caption;
 }
 
-// Render once on load, then re-render whenever the host changes the select.
+// --- Estimated game length ----------------------------------------------
+// A rough heuristic so the host knows roughly how long a round will run.
+// Bingo timing varies a lot (it depends on which words land on whose
+// card), so this is deliberately approximate and labelled as such.
+//
+// Estimate = (words called before the game ends) x (time per call).
+// Per call we take the larger of the host's interval and a ~6s allowance
+// for reading the word + description aloud (the "read full description"
+// feature waits for the clue to finish before advancing).
+const READ_ALLOWANCE_SECONDS = 6;
+
+// Typical number of words called before a winner completes each pattern.
+// Specific single lines need that exact line, so they take longer than the
+// "any line" categories where any of several lines counts.
+function estimatedCallsForPattern(patternKey) {
+  if (patternKey === "full_house") return 28;
+  const isSpecificLine =
+    /^row_\d$/.test(patternKey) ||
+    /^col_\d$/.test(patternKey) ||
+    patternKey === "diag_main" ||
+    patternKey === "diag_anti";
+  if (isSpecificLine) return 20;
+  return 12; // any horizontal / vertical / diagonal line
+}
+
+function formatDuration(totalSeconds) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = Math.round(totalSeconds % 60);
+  if (mins === 0) return `${secs} sec`;
+  if (secs === 0) return `${mins} min`;
+  return `${mins} min ${secs} sec`;
+}
+
+function renderTimeEstimate() {
+  const el = $("time-estimate");
+  if (!el) return;
+  const intervalInput = document.querySelector(
+    'input[name="call_interval_seconds"]',
+  );
+  const interval = Number(intervalInput && intervalInput.value) || 5;
+  const pattern = patternSelect ? patternSelect.value : "horizontal";
+  const perCall = Math.max(interval, READ_ALLOWANCE_SECONDS);
+  const calls = estimatedCallsForPattern(pattern);
+  el.textContent =
+    `⏱ Estimated game length: about ${formatDuration(perCall * calls)} ` +
+    `(~${calls} words called). Rough estimate — the game ends as soon as ` +
+    `your winner spots are filled.`;
+}
+
+// Render once on load, then re-render whenever the host changes the
+// pattern or the call interval (both feed the preview / time estimate).
 const patternSelect = document.querySelector('select[name="pattern"]');
 if (patternSelect) {
   renderPatternPreview(patternSelect.value);
-  patternSelect.addEventListener("change", () =>
-    renderPatternPreview(patternSelect.value),
-  );
+  patternSelect.addEventListener("change", () => {
+    renderPatternPreview(patternSelect.value);
+    renderTimeEstimate();
+  });
 }
+const intervalInput = document.querySelector(
+  'input[name="call_interval_seconds"]',
+);
+if (intervalInput) {
+  intervalInput.addEventListener("input", renderTimeEstimate);
+}
+renderTimeEstimate();
 
 // --- Text-to-speech -----------------------------------------------------
 // We prefer a high-quality "natural"/neural system voice when the browser

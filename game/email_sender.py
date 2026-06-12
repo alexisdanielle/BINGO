@@ -98,3 +98,107 @@ def send_otp_email(
     except Exception:
         logger.exception("Unexpected error sending OTP email to %s", to_address)
         return False
+
+
+def _ordinal(n: int) -> str:
+    """Return ``n`` with its English ordinal suffix, e.g. 1 -> '1st'."""
+    # 11/12/13 are special-cased: they always take 'th' despite ending in
+    # 1/2/3 (eleventh, not eleven-first).
+    if 11 <= (n % 100) <= 13:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def send_winner_email(
+    to_address: str,
+    player_name: str,
+    place: int,
+    pattern_matched: str,
+    game_id: int,
+    smtp_user: str | None,
+    smtp_password: str | None,
+) -> bool:
+    """Congratulate a winning player by email after a validated Bingo.
+
+    Mirrors :func:`send_otp_email`: uses Gmail SSL and degrades gracefully
+    when SMTP credentials are absent (logs and returns False) so the game
+    keeps running in demo mode without real email delivery.
+
+    Args:
+        to_address: The winner's email address (from their card).
+        player_name: Display name, used to personalise the greeting.
+        place: Finishing place (1 = first). Shown as an ordinal.
+        pattern_matched: Which line they completed, e.g. "Row 2".
+        game_id: Shown in the subject for context.
+        smtp_user: Gmail address used as sender (from SMTP_USER env var).
+        smtp_password: Google App Password (from SMTP_PASSWORD env var).
+
+    Returns:
+        True if the email was sent successfully, False otherwise.
+    """
+    if not smtp_user or not smtp_password:
+        # No SMTP configured (e.g. local demo) — log instead of sending so
+        # the game still works end-to-end without an email account.
+        logger.warning(
+            "SMTP credentials not set. Winner email skipped for %s "
+            "(game %d, %s place).",
+            to_address,
+            game_id,
+            _ordinal(place),
+        )
+        return False
+
+    place_text = _ordinal(place)
+    subject = f"🎉 You won {place_text} place — CGI Virtual Bingo Game #{game_id}"
+    body_text = (
+        f"Congratulations, {player_name}!\n\n"
+        f"You finished in {place_text} place in CGI Virtual Bingo "
+        f"(Game #{game_id}) by completing: {pattern_matched}.\n\n"
+        "The game host will be in touch about your prize. Thanks for playing!"
+    )
+    body_html = f"""
+<html>
+  <body style="font-family: system-ui, sans-serif; color: #1a1a2e; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="background: #003da5; padding: 16px 24px; border-radius: 8px 8px 0 0;">
+      <span style="color: white; font-size: 1.1rem; font-weight: 600;">CGI Virtual Bingo</span>
+    </div>
+    <div style="border: 1px solid #d0d5dd; border-top: none; padding: 24px; border-radius: 0 0 8px 8px;">
+      <p style="margin-top: 0; font-size: 1.15rem;">🎉 Congratulations, <strong>{player_name}</strong>!</p>
+      <p>You finished in <strong>{place_text} place</strong> in <strong>Game #{game_id}</strong>.</p>
+      <div style="background: #e8eef9; border: 1px solid #003da5; border-radius: 6px; padding: 16px; text-align: center; margin: 20px 0;">
+        <span style="font-size: 1.1rem; font-weight: 700; color: #003da5;">Winning pattern: {pattern_matched}</span>
+      </div>
+      <p style="color: #5f6b7a; font-size: 0.9rem;">The game host will be in touch about your prize. Thanks for playing!</p>
+    </div>
+  </body>
+</html>
+"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = smtp_user
+    msg["To"] = to_address
+    msg.attach(MIMEText(body_text, "plain"))
+    msg.attach(MIMEText(body_html, "html"))
+
+    try:
+        with smtplib.SMTP_SSL(_GMAIL_HOST, _GMAIL_PORT) as server:
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, to_address, msg.as_string())
+        logger.info(
+            "Winner email sent to %s for game %d (%s place)",
+            to_address,
+            game_id,
+            place_text,
+        )
+        return True
+    except smtplib.SMTPAuthenticationError:
+        logger.error(
+            "SMTP authentication failed. Check SMTP_USER / SMTP_PASSWORD in .env"
+        )
+        return False
+    except Exception:
+        logger.exception("Unexpected error sending winner email to %s", to_address)
+        return False

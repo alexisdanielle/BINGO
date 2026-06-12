@@ -716,6 +716,13 @@ ol, ul { padding-left: 1.5rem; }
   }
 }
 
+/* Estimated game-length hint under the call-interval field. */
+.estimate-line {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 /* ── Win-pattern preview (host create form) ── */
 .pattern-preview {
   margin: 0.25rem 0 1rem;

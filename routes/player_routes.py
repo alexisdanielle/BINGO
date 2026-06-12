@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from game.card_generator import generate_card
-from game.email_sender import send_otp_email
+from game.email_sender import send_otp_email, send_winner_email
 from game.game_engine import which_pattern_matched
 from models import Card, Game, PlayerAuth, Win, db
 from sockets import socketio
@@ -375,6 +375,23 @@ def claim_bingo(game_id: int):
             "game_ended",
             {"game_id": game.id, "reason": "last_winner"},
             to=f"game:{game.id}",
+        )
+
+    # Congratulate the winner by email. Fired as a background task so the
+    # winner's HTTP response isn't held up by the SMTP round-trip; the
+    # SMTP creds are read here (in request context) and passed as plain
+    # values so the task needs no app context. Degrades to a log line when
+    # SMTP isn't configured (same as the OTP path).
+    if card.player_email:
+        socketio.start_background_task(
+            send_winner_email,
+            to_address=card.player_email,
+            player_name=card.player_name,
+            place=place,
+            pattern_matched=matched,
+            game_id=game.id,
+            smtp_user=current_app.config.get("SMTP_USER"),
+            smtp_password=current_app.config.get("SMTP_PASSWORD"),
         )
 
     return jsonify(place=place, pattern_matched=matched), 200
