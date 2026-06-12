@@ -46,6 +46,15 @@ block content %}
         </optgroup>
       </select>
     </label>
+
+    {# Live mini-card preview of the selected win pattern. The 5x5 grid is
+       built by host.js (renderPatternPreview) and updates on every change,
+       so the host can see what e.g. a "full house" actually looks like. #}
+    <div class="pattern-preview">
+      <span class="pattern-preview-title">Winning pattern preview</span>
+      <div class="pattern-preview-grid" id="pattern-preview-grid" aria-hidden="true"></div>
+      <p class="pattern-preview-caption muted" id="pattern-preview-caption"></p>
+    </div>
     <label
       >Call interval (seconds)
       <input

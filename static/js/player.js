@@ -30,12 +30,47 @@ function playSound(name) {
   try { a.currentTime = 0; a.play().catch(() => {}); } catch (_) {}
 }
 
+// We prefer a high-quality "natural"/neural system voice when the browser
+// offers one (e.g. Microsoft *Online (Natural)* voices in Edge, or Google
+// voices in Chrome) so the caller sounds more human than the robotic
+// default. getVoices() is async — often empty on first call — so we cache
+// the chosen voice and refresh it when the browser fires `voiceschanged`.
+let preferredVoice = null;
+
+function pickPreferredVoice() {
+  if (!("speechSynthesis" in window)) return;
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return; // not loaded yet; voiceschanged will retry
+  // Ordered wish-list of name fragments — first English match wins. These
+  // are the most natural-sounding voices commonly available across Edge
+  // (Windows), Chrome, and macOS.
+  const wishlist = ["Natural", "Google US English", "Samantha", "Microsoft Zira"];
+  for (const fragment of wishlist) {
+    const match = voices.find(
+      (v) => v.lang.startsWith("en") && v.name.includes(fragment),
+    );
+    if (match) { preferredVoice = match; return; }
+  }
+  // Fallback: any English voice, else the very first available voice.
+  preferredVoice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
+}
+
+if ("speechSynthesis" in window) {
+  pickPreferredVoice();
+  speechSynthesis.onvoiceschanged = pickPreferredVoice;
+}
+
 function speak(word, description) {
   if (state.muted) return;
   if (!("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(word);
-  utt.rate = 0.9;
+  // Read the word, then its description, so players hear the full clue
+  // before the next word is called. The period adds a natural pause.
+  const text = description ? `${word}. ${description}` : word;
+  const utt = new SpeechSynthesisUtterance(text);
+  if (preferredVoice) utt.voice = preferredVoice;
+  utt.rate = 0.95;
+  utt.pitch = 1.0;
   speechSynthesis.speak(utt);
 }
 
@@ -305,6 +340,19 @@ function toggleMark(r, c) {
   renderCard();
 }
 
+// --- Called-words legend -------------------------------------------------
+// Adds a chip to the sidebar each time a word is called (newest first) so
+// players can review words they may have missed. Hovering shows the
+// description via the native title tooltip.
+function addCalledWordToLegend(word, description) {
+  $("called-words-empty").hidden = true;
+  const li = document.createElement("li");
+  li.textContent = word;
+  li.title = description || "";
+  $("player-call-history").prepend(li);
+  $("player-call-count").textContent = state.calledWords.length;
+}
+
 // --- Bingo claim ---------------------------------------------------------
 $("bingo-button").addEventListener("click", async () => {
   const res  = await fetch(`/api/games/${state.gameId}/bingo`, {
@@ -339,6 +387,7 @@ function connectSocket() {
     fitCurrentWord(); // scale font so the word never wraps
     wordEl.classList.add("pop");
     $("current-description").textContent = description || "";
+    addCalledWordToLegend(word, description);
     speak(word, description);
     renderCard(word);       // pass newly-called word for cell animation
     updateBingoButton();

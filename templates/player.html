@@ -99,22 +99,38 @@
     </div>
   </div>
   <p>Playing as: <strong id="who-am-i"></strong></p>
-  <div class="current-word-card" aria-live="polite">
-    <div class="cw-label">Now calling</div>
-    <span id="current-word">—</span>
-    <p id="current-description"></p>
+
+  {# Two-column layout: the card on the left, a "called words" legend on
+     the right. The legend lets players double-check words they may have
+     missed. On narrow screens these stack (see .player-layout in CSS). #}
+  <div class="player-layout">
+    <div class="player-main">
+      <div class="current-word-card" aria-live="polite">
+        <div class="cw-label">Now calling</div>
+        <span id="current-word">—</span>
+        <p id="current-description"></p>
+      </div>
+      {# BINGO column letters — purely decorative; top-aligns with the card cells below #}
+      <div class="bingo-column-headers" aria-hidden="true">
+        <div class="bingo-col-header">B</div>
+        <div class="bingo-col-header">I</div>
+        <div class="bingo-col-header">N</div>
+        <div class="bingo-col-header">G</div>
+        <div class="bingo-col-header">O</div>
+      </div>
+      <table id="bingo-card"></table>
+      <button id="bingo-button" type="button" disabled>BINGO!</button>
+      <p id="claim-result" aria-live="polite"></p>
+    </div>
+
+    {# Legend of previously called words, newest first. Populated by
+       player.js on each word_called event; hover a chip for its description. #}
+    <aside class="called-words-panel" aria-label="Previously called words">
+      <h3>Called words (<span id="player-call-count">0</span>)</h3>
+      <p class="muted called-words-empty" id="called-words-empty">No words called yet.</p>
+      <ul id="player-call-history"></ul>
+    </aside>
   </div>
-  {# BINGO column letters — purely decorative; top-aligns with the card cells below #}
-  <div class="bingo-column-headers" aria-hidden="true">
-    <div class="bingo-col-header">B</div>
-    <div class="bingo-col-header">I</div>
-    <div class="bingo-col-header">N</div>
-    <div class="bingo-col-header">G</div>
-    <div class="bingo-col-header">O</div>
-  </div>
-  <table id="bingo-card"></table>
-  <button id="bingo-button" type="button" disabled>BINGO!</button>
-  <p id="claim-result" aria-live="polite"></p>
 </section>
 
 <section id="end-section" hidden>

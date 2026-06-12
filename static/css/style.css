@@ -666,6 +666,99 @@ ol, ul { padding-left: 1.5rem; }
 }
 #call-history li:hover { transform: scale(1.06); cursor: default; }
 
+/* ── Player layout: bingo card + called-words legend sidebar ── */
+.player-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+.player-main {
+  flex: 1 1 auto;
+  min-width: 0; /* let the card shrink instead of overflowing the row */
+}
+.called-words-panel {
+  flex: 0 0 200px;
+  background: var(--accent-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  position: sticky;
+  top: 1rem; /* keep the legend in view as the page scrolls */
+}
+.called-words-panel h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.called-words-empty { font-size: 0.82rem; margin: 0; }
+/* Reuse the host chip look, but stack vertically in the narrow sidebar. */
+#player-call-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+#player-call-history li {
+  background: white;
+  color: var(--accent-dark);
+  border: 1px solid rgba(204,0,0,0.18);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+/* Stack the legend below the card on narrow screens. */
+@media (max-width: 720px) {
+  .player-layout { flex-direction: column; }
+  .called-words-panel {
+    flex-basis: auto;
+    width: 100%;
+    position: static;
+    box-sizing: border-box;
+  }
+}
+
+/* ── Win-pattern preview (host create form) ── */
+.pattern-preview {
+  margin: 0.25rem 0 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--accent-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.pattern-preview-title {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+  margin-bottom: 0.5rem;
+}
+/* 5x5 mini grid; squares are fixed-size so it reads as a tiny bingo card. */
+.pattern-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 26px);
+  grid-template-rows: repeat(5, 26px);
+  gap: 3px;
+}
+.pp-cell {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+/* Highlighted cells that make up the winning pattern. */
+.pp-on {
+  background: var(--accent, #cc0000);
+  border-color: var(--accent, #cc0000);
+}
+/* FREE centre square — always marked, shown distinctly when not part of
+   the highlighted line. */
+.pp-free:not(.pp-on) {
+  background: #ffe0e0;
+  border-color: rgba(204,0,0,0.3);
+}
+.pattern-preview-caption {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+}
+
 /* ── OTP / auth section ── */
 .otp-input {
   font-size: 2rem;

@@ -265,7 +265,7 @@ function connectSocket() {
     li.title = description || "";  // tooltip shows description on hover
     li.textContent = word;
     $("call-history").prepend(li);
-    speak(word);
+    speak(word, description);
   });
   socket.on("win_declared", ({ place, player_name, pattern_matched }) => {
     state.wins.push({ place, player_name, pattern_matched });
@@ -424,12 +424,122 @@ function renderTopicHistory(topics) {
   }
 }
 
+// --- Win-pattern preview (create form) ----------------------------------
+// Builds the set of cells to highlight for a given pattern key plus a short
+// caption. For "any line" categories we highlight ONE representative line
+// (highlighting every possible line would just look like a full house).
+function previewForPattern(patternKey) {
+  const G = 5;
+  const cells = new Set();
+  const add = (r, c) => cells.add(`${r},${c}`);
+
+  // Specific single-line patterns — highlight exactly those cells.
+  const rowM = patternKey.match(/^row_(\d)$/);
+  if (rowM) {
+    const r = Number(rowM[1]) - 1;
+    for (let c = 0; c < G; c++) add(r, c);
+    return { cells, caption: `Row ${rowM[1]} only — mark all 5 cells in this row.` };
+  }
+  const colM = patternKey.match(/^col_(\d)$/);
+  if (colM) {
+    const c = Number(colM[1]) - 1;
+    for (let r = 0; r < G; r++) add(r, c);
+    return { cells, caption: `Column ${colM[1]} only — mark all 5 cells in this column.` };
+  }
+  if (patternKey === "diag_main") {
+    for (let i = 0; i < G; i++) add(i, i);
+    return { cells, caption: "Main diagonal ↘ — top-left to bottom-right." };
+  }
+  if (patternKey === "diag_anti") {
+    for (let i = 0; i < G; i++) add(i, G - 1 - i);
+    return { cells, caption: "Anti-diagonal ↙ — top-right to bottom-left." };
+  }
+
+  // "Any line" categories — show one example of an accepted line.
+  switch (patternKey) {
+    case "horizontal":
+      for (let c = 0; c < G; c++) add(2, c);
+      return { cells, caption: "Any one horizontal line wins (example shown)." };
+    case "vertical":
+      for (let r = 0; r < G; r++) add(r, 2);
+      return { cells, caption: "Any one vertical line wins (example shown)." };
+    case "diagonal":
+      for (let i = 0; i < G; i++) add(i, i);
+      return { cells, caption: "Either diagonal wins (example shown)." };
+    case "full_house":
+      for (let r = 0; r < G; r++) for (let c = 0; c < G; c++) add(r, c);
+      return { cells, caption: "Full house — every square must be marked." };
+    default:
+      return { cells, caption: "" };
+  }
+}
+
+function renderPatternPreview(patternKey) {
+  const grid = $("pattern-preview-grid");
+  const captionEl = $("pattern-preview-caption");
+  if (!grid) return;
+  const { cells, caption } = previewForPattern(patternKey);
+  grid.innerHTML = "";
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const cell = document.createElement("div");
+      cell.className = "pp-cell";
+      if (r === 2 && c === 2) cell.classList.add("pp-free"); // FREE centre
+      if (cells.has(`${r},${c}`)) cell.classList.add("pp-on");
+      grid.appendChild(cell);
+    }
+  }
+  captionEl.textContent = caption;
+}
+
+// Render once on load, then re-render whenever the host changes the select.
+const patternSelect = document.querySelector('select[name="pattern"]');
+if (patternSelect) {
+  renderPatternPreview(patternSelect.value);
+  patternSelect.addEventListener("change", () =>
+    renderPatternPreview(patternSelect.value),
+  );
+}
+
 // --- Text-to-speech -----------------------------------------------------
-function speak(word) {
+// We prefer a high-quality "natural"/neural system voice when the browser
+// offers one (e.g. Microsoft *Online (Natural)* voices in Edge, or Google
+// voices in Chrome) so the caller sounds more human than the robotic
+// default. getVoices() is async — often empty on first call — so we cache
+// the chosen voice and refresh it when the browser fires `voiceschanged`.
+let preferredVoice = null;
+
+function pickPreferredVoice() {
+  if (!("speechSynthesis" in window)) return;
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return; // not loaded yet; voiceschanged will retry
+  // Ordered wish-list of name fragments — first English match wins.
+  const wishlist = ["Natural", "Google US English", "Samantha", "Microsoft Zira"];
+  for (const fragment of wishlist) {
+    const match = voices.find(
+      (v) => v.lang.startsWith("en") && v.name.includes(fragment),
+    );
+    if (match) { preferredVoice = match; return; }
+  }
+  // Fallback: any English voice, else the very first available voice.
+  preferredVoice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
+}
+
+if ("speechSynthesis" in window) {
+  pickPreferredVoice();
+  speechSynthesis.onvoiceschanged = pickPreferredVoice;
+}
+
+function speak(word, description) {
   if (!("speechSynthesis" in window)) return;
   // Cancel any in-flight utterance so words don't pile up at short intervals.
   speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(word);
-  utt.rate = 0.9;
+  // Read the word, then its description, so the host hears the full clue
+  // before the next word is called. The period adds a natural pause.
+  const text = description ? `${word}. ${description}` : word;
+  const utt = new SpeechSynthesisUtterance(text);
+  if (preferredVoice) utt.voice = preferredVoice;
+  utt.rate = 0.95;
+  utt.pitch = 1.0;
   speechSynthesis.speak(utt);
 }
